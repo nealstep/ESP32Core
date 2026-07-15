@@ -32,8 +32,22 @@ void log_version(void) {
           "E32C build time", Version::get_build_time());
 }
 
+#ifdef ARDUINO
+void open_preferences(void) {
+#if defined(ARDUINO_ARCH_ESP32)
+    bool succ = preferences.begin(namespace_name, true);
+    if (!succ) {
 #ifdef LOG_SERIAL
-void serial_setup() {
+        LOG_SERIAL.begin(SERIAL_SPEED);
+        LOG_E(Log::Uni::Main, Log::Err::NoPrefS);
+#endif  // LOG_SERIAL
+        die();
+    }
+}
+#endif  // ARDUINO
+
+#ifdef LOG_SERIAL
+void serial_setup(void) {
     bool no_use_serial;
     bool no_serial_speed;
     if (preferences.isKey(k_use_serial)) {
@@ -65,18 +79,11 @@ void serial_setup() {
 
 #ifdef ARDUINO
 
-void setup() {
+void setup(void) {
     delay(Config::startup_delay);
-#if defined(ARDUINO_ARCH_ESP32)
-    bool succ = preferences.begin(namespace_name, true);
-    if (!succ) {
-#ifdef LOG_SERIAL
-        LOG_SERIAL.begin(SERIAL_SPEED);
-        LOG_SERIAL.println(
-            "No Preferences: Have you run ESP32Core-Preferences");
-#endif  // LOG_SERIAL
-        die();
-    }
+#ifdef ARDUINO
+    open_preferences();
+#endif  // ARDUINO
 #ifdef LOG_SERIAL
     serial_setup();
 #endif  // LOG_SERIAL
@@ -84,9 +91,12 @@ void setup() {
     LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Starting);
     log_version();
     LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::Started);
+#ifdef ARDUINO
+    preferences.end();
+#endif  // ARDUINO
 }
 
-void loop() { delay(Config::medium_delay); }
+void loop(void) { delay(Config::medium_delay); }
 
 #else  // !ARDUINO
 

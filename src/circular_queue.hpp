@@ -86,7 +86,7 @@ class CircularQueue {
         }
     }
 
-    ~CircularQueue() {
+    ~CircularQueue(void) {
         LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::Destroy);
         // free allocated space
         if (buffer != nullptr) {
@@ -173,12 +173,12 @@ class CircularQueue {
         return Log::Err::NoError;
     }
 
-    bool check_overrun() { return overrrun; }
-    void clear_overrun() { overrrun = false; }
-    size_t get_used_capacity() const { return used_bytes; }
-    uint16_t get_used_entries() const { return used_entries; }
-    size_t get_free_capacity() const { return capacity - used_bytes; }
-    uint16_t get_free_entries() const { return entries - used_entries; }
+    bool check_overrun(void) { return overrrun; }
+    void clear_overrun(void) { overrrun = false; }
+    size_t get_used_capacity(void) const { return used_bytes; }
+    uint16_t get_used_entries(void) const { return used_entries; }
+    size_t get_free_capacity(void) const { return capacity - used_bytes; }
+    uint16_t get_free_entries(void) const { return entries - used_entries; }
 
    private:
     size_t capacity = 0;
@@ -198,7 +198,7 @@ class CircularQueue {
     bool overrrun = false;
 
     // Helper to pop the oldest record metadata and update byte count
-    void evict_oldest_record() {
+    void evict_oldest_record(void) {
         if (used_entries == 0) return;
 
         size_t oldest_size = records[head_entries];

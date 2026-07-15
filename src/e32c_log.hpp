@@ -158,9 +158,9 @@ class Log {
             unit_mask = static_cast<Uni>(static_cast<uint32_t>(Uni::Last) - 1);
         }
     }
-    Uni get_unit_mask() { return unit_mask; }
+    Uni get_unit_mask(void) { return unit_mask; }
     void set_severity(Sev code) { severity = code; }
-    Sev get_severity() { return severity; }
+    Sev get_severity(void) { return severity; }
 
    private:
     // settings

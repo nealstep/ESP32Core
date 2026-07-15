@@ -7,9 +7,11 @@
     X(Last, "Last")
 // Last entry for masking
 
-#define ERROR_LIST(X)                      \
-    X(NoError, "No Error")                 \
-    X(UnexpectedError, "Unexpected Error") \
+#define ERROR_LIST(X)                                                  \
+    X(NoError, "No Error")                                             \
+    X(UnexpectedError, "Unexpected Error")                             \
+    X(MallocFailed, "Malloc %S failed")                                \
+    X(MallocFailedFreeing, "Malloc failed for buffer freeing entries") \
     E32C_ERROR_LIST(X)
 
 #define NOTICE_LIST(X)          \
