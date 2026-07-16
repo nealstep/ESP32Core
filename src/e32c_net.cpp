@@ -10,15 +10,33 @@
 #include "constants.hpp"
 #include "prefs.hpp"
 
-// uint8_t ESP32Net::Config::aes_key[ESP32Net::Config::aes_key_size];
-
 // async udo
 AsyncUDP audp;
 WiFiUDP wudp;
 
 void get_net_prefs(void) {
-    // prefs.tz_full
-    // prefs.serial_speed = preferences.getUInt(k_serial_speed, b_serial_speed);
+    get_pref_str(Prefs::Keys::tz_full, prefs.tz_full, Prefs::Sizes::tz_full,
+                 Prefs::BadValues::tz_full);
+    get_pref_str(Prefs::Keys::wifi_ssid, prefs.wifi_ssid,
+                 Prefs::Sizes::wifi_ssid, Prefs::BadValues::wifi_ssid);
+    get_pref_str(Prefs::Keys::wifi_password, prefs.wifi_password,
+                 Prefs::Sizes::wifi_password, Prefs::BadValues::wifi_password,
+                 false);
+    get_pref_str(Prefs::Keys::ota_password, prefs.ota_password,
+                 Prefs::Sizes::ota_password, Prefs::BadValues::ota_password,
+                 false);
+    get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
+                 Prefs::BadValues::udp_data_port);
+    get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
+    get_pref_u16(Prefs::Keys::local_queue_size, prefs.local_queue_size,
+                 Prefs::BadValues::local_queue_size);
+    get_pref_u16(Prefs::Keys::internet_queue_size, prefs.internet_queue_size,
+                 Prefs::BadValues::internet_queue_size);
+#if USE_AES
+    get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
+    get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
+                 Prefs::BadValues::hex_key, false);
+#endif  // USE_AES
 }
 
 void wifi_connected(WiFiEvent_t event, WiFiEventInfo_t info) {

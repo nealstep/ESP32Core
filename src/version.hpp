@@ -24,5 +24,3 @@ class Version {
     }
     static constexpr const char* get_build_time(void) { return build_time; }
 };
-
-void die(void);

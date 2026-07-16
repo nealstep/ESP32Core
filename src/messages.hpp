@@ -16,6 +16,8 @@
 
 #define NOTICE_LIST(X)          \
     X(NoNotice, "No Notice")    \
+    X(Starting, "Starting up")  \
+    X(Started, "Started up")    \
     X(Create, "Create")         \
     X(Destroy, "Destroy")       \
     X(SimpleValueStr, "%s: %s") \

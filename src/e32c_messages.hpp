@@ -4,39 +4,38 @@
     X(Main, "Main")       \
     X(Log, "Log")         \
     X(CirQ, "CirQ")       \
+    X(Pref, "Pref")       \
     X(Net, "Net")
 
-#define E32C_ERROR_LIST(X)                             \
-    X(Died, "Died")                                    \
-    X(NoPrefs, "No Preferences found")                 \
-    X(NoPref, "No Preference found")                   \
-    X(PrefUnset, "Preference unset")                   \
-    X(PrefUpdateFailed, "Preference Update Failed")    \
-    X(NoPrefU, "No Pref %s, defaulting to %u")         \
-    X(NoPrefS, "No Pref %s, defaulting to %s")         \
-    X(QueueEmpty, "Queue empty")                       \
-    X(NoQueue, "No queue")                             \
-    X(ItemTooBig, "Item too big")                      \
-    X(TimeSyncFailed, "Time sync failed")              \
-    X(NoNetwork, "No network")                         \
-    X(NoInternet, "No internet")                       \
-    X(SerializeError, "Serialize error")               \
-    X(DeserializeError, "Deserialize error")           \
-    X(CreateQueueFailed, "Create queue failed")        \
-    X(FailedToAddToQueue, "Failed to add to queue")    \
-    X(UDPListenerFailed, "UDP listener failed")        \
-    X(UnknownMessage, "Unknown message")               \
-    X(StringTooBig, "String too big")                  \
-    X(EncryptSetKeyFailed, "Encrypt set key failed")   \
-    X(EncryptCryptError, "Encrypt crypt error")        \
-    X(UDPBeginPacketFailed, "UDP begin packet failed") \
-    X(UDPWriteFailed, "UDP write failed")              \
+#define E32C_ERROR_LIST(X)                              \
+    X(Died, "Died")                                     \
+    X(NoPrefs, "No Preferences found")                  \
+    X(NoPref, "No Preference found: %s")                \
+    X(PrefUnset, "Preference unset: %s")                \
+    X(PrefUpdateFailed, "Preference Update Failed: %s") \
+    X(NoPrefU, "No Pref %s, defaulting to %u")          \
+    X(NoPrefS, "No Pref %s, defaulting to %s")          \
+    X(QueueEmpty, "Queue empty")                        \
+    X(NoQueue, "No queue")                              \
+    X(ItemTooBig, "Item too big")                       \
+    X(TimeSyncFailed, "Time sync failed")               \
+    X(NoNetwork, "No network")                          \
+    X(NoInternet, "No internet")                        \
+    X(SerializeError, "Serialize error")                \
+    X(DeserializeError, "Deserialize error")            \
+    X(CreateQueueFailed, "Create queue failed")         \
+    X(FailedToAddToQueue, "Failed to add to queue")     \
+    X(UDPListenerFailed, "UDP listener failed")         \
+    X(UnknownMessage, "Unknown message")                \
+    X(StringTooBig, "String too big: %s")               \
+    X(EncryptSetKeyFailed, "Encrypt set key failed")    \
+    X(EncryptCryptError, "Encrypt crypt error")         \
+    X(UDPBeginPacketFailed, "UDP begin packet failed")  \
+    X(UDPWriteFailed, "UDP write failed")               \
     X(UDPEndPacketFailed, "UDP end packet failed")
 
 #define E32C_NOTICE_LIST(X)                                      \
     X(KeepAlive, "Keep alive")                                   \
-    X(Starting, "Starting up")                                   \
-    X(Started, "Started up")                                     \
     X(LoopedN, "looped %d times")                                \
     X(CirQCreate, "CQ::CircularQueue(%ld, %d)")                  \
     X(ComputedEntries, "Computed entries: %d")                   \
@@ -68,9 +67,14 @@
     X(CheckQueue, "Check queue")                                 \
     X(SendMessage, "Send message (%s:%d): %s")                   \
     X(Encrypting, "Encrypting")                                  \
+    X(PrefReadS, "Read Pref %s as %s")                           \
+    X(PrefReadU, "Read Pref %s as %u")                           \
+    X(PrefUpdatedS, "Updated Pref %s as %s")                     \
+    X(PrefUpdatedU, "Updated Pref %s as %u")                     \
     X(Done, "Done")
 
 #define E32C_WORD_LIST(X) \
     X(Buffer, "Buffer")   \
     X(Records, "Records") \
-    X(Message, "Message")
+    X(Message, "Message") \
+    X(XXX, "XXX")

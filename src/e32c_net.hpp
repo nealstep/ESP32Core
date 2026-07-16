@@ -151,7 +151,7 @@ class ESP32Net {
     uint32_t subnet_addr = 0;
 
 #ifdef USE_AES
-    static uint8_t aes_key[Config::aes_key_size];
+    uint8_t aes_key[Config::aes_key_size];
 #endif  // USE_AES
 
 #if USE_QUEUE
