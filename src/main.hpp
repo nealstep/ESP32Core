@@ -8,10 +8,6 @@
 
 #include "version.h"
 
-namespace Config {
-static constexpr uint32_t startup_delay = 3000;
-static constexpr uint32_t medium_delay = 500;
-}  // namespace Config
 
 class Version {
    protected:
