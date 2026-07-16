@@ -10,9 +10,6 @@
 
 #ifdef ARDUINO
 #include <Arduino.h>
-
-// broadcast ip
-const IPAddress broadcastIP(255, 255, 255, 255);
 #endif  // ARDUINO
 
 class ESP32Net {
@@ -91,6 +88,7 @@ class ESP32Net {
 
     typedef struct {
         IPAddress remoteIP;
+        bool broadcast;
         char data[Config::udp_msg_size];
     } UDPMessage;
 
@@ -98,6 +96,10 @@ class ESP32Net {
     bool udp_init = false;
     bool ota_init = false;
 
+    // broadcast ip
+    IPAddress broadcastIP;
+
+    // queues
     QueueHandle_t netQueue;
     QueueHandle_t udpQueue;
 
@@ -118,6 +120,8 @@ class ESP32Net {
     void set_subnet_mask(IPAddress smask) {
         subnet_mask = smask;
         subnet_addr = (uint32_t)local_ip & subnet_mask;
+        broadcast_addr = (uint32_t)local_ip | ~subnet_mask;
+        broadcastIP = broadcast_addr;
     }
     IPAddress get_ip(void) { return local_ip; }
     bool have_internet(void) { return internet_connected; }
@@ -149,8 +153,9 @@ class ESP32Net {
     IPAddress local_ip = INADDR_NONE;
     uint32_t subnet_mask = 0;
     uint32_t subnet_addr = 0;
+    uint32_t broadcast_addr = 0;
 
-#ifdef USE_AES
+#if USE_AES
     uint8_t aes_key[Config::aes_key_size];
 #endif  // USE_AES
 

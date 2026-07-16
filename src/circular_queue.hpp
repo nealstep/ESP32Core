@@ -8,7 +8,7 @@
 #include <cstring>
 #endif  // ARDUINO !ARDUINO
 
-#ifdef USE_QUEUE
+#if USE_QUEUE
 
 typedef uint16_t Entry;
 

@@ -1,39 +1,22 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
-from configparser import ConfigParser
-from Crypto.Cipher import AES  # type: ignore
 from socket import socket
 
-from configparser import Error as CPError
-
 from binascii import unhexlify
-from os.path import dirname, abspath, isfile
-
-from os.path import join as pjoin
 
 from Crypto.Random import get_random_bytes  # type: ignore
 
+from Crypto.Cipher import AES  # type: ignore
+
 from socket import AF_INET, SOCK_DGRAM, SO_BROADCAST, SOL_SOCKET
+
+from secret import udp_data_port, hex_key
 
 # defaults
 broadcast = "255.255.255.255"
 message = "Hello, UDP Receiver!"
 
-# get ini file
-config = ConfigParser()
-py_file_dir = dirname(abspath(__file__))
-secret_ini = pjoin(py_file_dir, "../secret.ini")
-if not isfile(secret_ini):
-    print(f"Ini file not found: {secret_ini}")
-    exit(1)
-try:
-    config.read(secret_ini, encoding="utf-8")
-except CPError as e:
-    print(f"Error reading INI file: {e}")
-    exit(1)
-udp_data_port = config.getint("secret", "udp_data_port")
-hex_key = config.get("secret", "aes_key")
 cleaned = hex_key.removeprefix('"').removesuffix('"')
 aes_key = unhexlify(cleaned)
 

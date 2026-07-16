@@ -51,10 +51,11 @@
     X(CirQPop, "CQ::pop: %d")                                    \
     X(Connected, "Connected")                                    \
     X(GotIP, "GotIP %s")                                         \
+    X(Broadcast, "BroadcastIP %s")                               \
     X(Disconnected, "Disconnected")                              \
     X(TimeSynced, "Time synced")                                 \
     X(InternetConnected, "Internet connected")                   \
-    X(ReceivedUDPPacket, "Received UDP packet from %s: %s")      \
+    X(ReceivedUDPPacket, "Received UDP packet from %s %s: %s")   \
     X(UDPPacket, "UDP packet received")                          \
     X(UDPListenerSetup, "UDP listener setup")                    \
     X(MessageSerialize, "Message Serialize: %s")                 \

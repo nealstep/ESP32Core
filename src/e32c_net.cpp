@@ -49,6 +49,7 @@ void wifi_connected(WiFiEvent_t event, WiFiEventInfo_t info) {
 void on_udp_packet_received(void* arg, AsyncUDPPacket packet) {
     LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::UDPPacket);
     ESP32Net::UDPMessage msg;
+    msg.broadcast = packet.isBroadcast();
     msg.remoteIP = packet.remoteIP();
     size_t len = packet.length();
     if (len + 1 >= ESP32Net::Config::udp_msg_size) {
@@ -483,7 +484,5 @@ void ESP32Net::genAesKey() {
 }
 
 #endif  // USE_AES
-
-bool check_internet_t(void) { return esp32Net.check_internet(); }
 
 #endif  // ARDUINO
