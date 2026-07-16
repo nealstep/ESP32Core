@@ -96,6 +96,7 @@ void get_main_prefs() {
     taskCheckInternet.setInterval(prefs.check_internet_int);
 }
 
+// TODO: #7 add a device name (internal) and a pretty name (prefs)
 void setup(void) {
     delay(Constants::startup_delay);
 

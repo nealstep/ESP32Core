@@ -7,6 +7,7 @@
 #include <iostream>
 #endif  // ARDUINO !ARDUINO
 
+// TODO: #6 add remote logging
 void log_output_impl(const char* str, bool error, bool truncated) {
     if (error) {
         // there was a an error expanding the string
