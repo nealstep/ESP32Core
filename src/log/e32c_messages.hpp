@@ -5,7 +5,8 @@
     X(Log, "Log")         \
     X(CirQ, "CirQ")       \
     X(Pref, "Pref")       \
-    X(Net, "Net")
+    X(Net, "Net")         \
+    X(Mod, "Mod")
 
 #define E32C_ERROR_LIST(X)                              \
     X(Died, "Died")                                     \

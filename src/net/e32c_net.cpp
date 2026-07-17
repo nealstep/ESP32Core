@@ -8,7 +8,7 @@
 #include <WiFi.h>
 
 #include "constants.hpp"
-#include "prefs.hpp"
+#include "prefs/prefs.hpp"
 
 // async udo
 AsyncUDP audp;

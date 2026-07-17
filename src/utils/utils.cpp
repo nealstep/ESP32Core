@@ -6,7 +6,7 @@
 #endif  // ARDUINO
 
 #include "constants.hpp"
-#include "e32c_log.hpp"
+#include "log/e32c_log.hpp"
 #include "utils.hpp"
 
 void die(void) {

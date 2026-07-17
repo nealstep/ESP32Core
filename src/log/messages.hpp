@@ -14,14 +14,15 @@
     X(MallocFailedFreeing, "Malloc failed for buffer freeing entries") \
     E32C_ERROR_LIST(X)
 
-#define NOTICE_LIST(X)          \
-    X(NoNotice, "No Notice")    \
-    X(Starting, "Starting up")  \
-    X(Started, "Started up")    \
-    X(Create, "Create")         \
-    X(Destroy, "Destroy")       \
-    X(SimpleValueStr, "%s: %s") \
-    X(SimpleValueInt, "%s: %d") \
+#define NOTICE_LIST(X)           \
+    X(NoNotice, "No Notice")     \
+    X(Starting, "Starting up")   \
+    X(Started, "Started up")     \
+    X(Create, "Create")          \
+    X(Destroy, "Destroy")        \
+    X(SimpleValueStr, "%s: %s")  \
+    X(SimpleValueInt, "%s: %d")  \
+    X(SimpleValueUInt, "%s: %u") \
     E32C_NOTICE_LIST(X)
 
 #define WORD_LIST(X)      \
@@ -36,8 +37,8 @@
     X(All, "All")
 
 #define DATA_LIST(X) \
-    X(U, "%s: %u") \
-    X(Str, "%s: %s")
+    X(U, "%s|%u")    \
+    X(Str, "%s|%s")  \
+    X(SU, "%s.%s|%u")
 
-#define NAME_LIST(X) \
-    E32C_NAME_LIST(X)
+#define NAME_LIST(X) E32C_NAME_LIST(X)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "e32c_log.hpp"
+#include "log/e32c_log.hpp"
 
 #if USE_QUEUE
 #include "circular_queue.hpp"

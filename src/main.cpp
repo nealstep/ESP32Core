@@ -8,12 +8,23 @@
 #endif  // IS_M5
 
 #include "constants.hpp"
-#include "e32c_log.hpp"
-#include "e32c_net.hpp"
-#include "messages.hpp"
-#include "prefs.hpp"
-#include "utils.hpp"
+#include "log/e32c_log.hpp"
+#include "log/messages.hpp"
+#include "modules/modules.hpp"
+#include "net/e32c_net.hpp"
+#include "prefs/prefs.hpp"
+#include "utils/utils.hpp"
 #include "version.hpp"
+
+#ifdef M_S_DUMMY
+#include "modules/m_s_dummy.hpp"
+M_S_Dummy m_s_dummy_1_1(1, 1);
+constexpr uint32_t m_s_dummy_1_1_int = 4 * Constants::sec_ms;
+
+void m_s_dummy_1_1_chk(void) {
+    DATA(Log::Data::SU, m_s_dummy_1_1.get_name(), m_s_dummy_1_1.s1, m_s_dummy_1_1.get_s1());
+}
+#endif  // M_S_DUMMY
 
 namespace Global {
 uint32_t loop_counter = 0;
@@ -34,8 +45,16 @@ void checkInternet() { esp32Net.check_internet(); }
 Task taskSendKeepAliveMsg(prefs.keep_alive_int, TASK_FOREVER, &keepAliveMsg);
 Task taskCheckInternet(prefs.check_internet_int, TASK_FOREVER, &checkInternet);
 
+#ifdef M_S_DUMMY
+Task taskMSDummy_1_1(m_s_dummy_1_1_int, TASK_FOREVER, &m_s_dummy_1_1_chk);
+#endif  // M_S_DUMMY
+
 // array of tasks to be added to the scheduler
-Task* tasks[] = {&taskSendKeepAliveMsg, &taskCheckInternet};
+Task* tasks[] = {&taskSendKeepAliveMsg,
+#ifdef M_S_DUMMY
+                 &taskMSDummy_1_1,
+#endif  // M_S_DUMMY
+                 &taskCheckInternet};
 
 #endif  // ARDUINO
 
@@ -46,6 +65,18 @@ void log_version(void) {
           "E32C firmware version", Version::get_firmware_version());
     LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::SimpleValueStr,
           "E32C build time", Version::get_build_time());
+    LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::SimpleValueStr,
+          "E32C build id", Version::get_build_id());
+}
+
+void log_diagnostics(void) {
+    LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::SimpleValueUInt,
+          "ESP32 CPU Frequency (Mhz)", ESP.getCpuFreqMHz());
+    LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::SimpleValueUInt,
+          "ESP32 Flash Speed (Mhz)",
+          ESP.getFlashChipSpeed() / Constants::million);
+    LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::SimpleValueUInt,
+          "ESP32 Free Heap (bytes)", ESP.getFreeHeap());
 }
 
 #ifdef ARDUINO
@@ -130,6 +161,7 @@ void setup(void) {
 
     // display version
     log_version();
+    log_diagnostics();
 
     // start network
     err = esp32Net.init();
@@ -137,6 +169,10 @@ void setup(void) {
         LOG_E(Log::Uni::Main, err);
         die();
     }
+
+    // test m_s_dummy_1_1
+    LOG_SERIAL.println(m_s_dummy_1_1.get_name());
+    LOG_SERIAL.println(m_s_dummy_1_1.get_s1());
 
     // enable and start all tasks
     for (auto& task : tasks) {

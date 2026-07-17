@@ -22,6 +22,11 @@ static constexpr uint32_t check_internet_int = 1 * min_sec * sec_ms;
 // sizes
 static constexpr size_t chipid_size = 17;
 static constexpr size_t timestamp_size = 32;
+static constexpr size_t name_size = 32;
+static constexpr size_t kind_size = 16;
+
+// numbers
+static constexpr uint32_t million = 1000000;
 
 // formats for time and messages
 static constexpr const char* const time_fmt = "%Y-%m-%d@%H:%M:%S-%Z";

@@ -1,5 +1,5 @@
-#include <e32c_log.hpp>
-#include <prefs.hpp>
+#include "e32c_log.hpp"
+#include "prefs/prefs.hpp"
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -16,6 +16,9 @@ void log_output_impl(const char* str, bool error, bool truncated) {
 #elifdef LOG_STDOUT
         std::cout << "Format!: " << str << std::endl;
 #endif  // LOG_SERIAL LOG_STDOUT
+#ifdef LOG_UDP
+        esp32Net.broadcast_str(str);
+#endif  // LOG_UDP
     } else if (truncated) {
         // the line got truncated
 #ifdef LOG_SERIAL
@@ -23,6 +26,9 @@ void log_output_impl(const char* str, bool error, bool truncated) {
 #elifdef LOG_STDOUT
         std::cout << "Trunc!: " << str << std::endl;
 #endif  // LOG_SERIAL LOG_STDOUT
+#ifdef LOG_UDP
+        esp32Net.broadcast_str(str);
+#endif  // LOG_UDP
     } else {
         // all is good
 #ifdef LOG_SERIAL
@@ -30,5 +36,9 @@ void log_output_impl(const char* str, bool error, bool truncated) {
 #elifdef LOG_STDOUT
         std::cout << str << std::endl;
 #endif  // LOG_SERIAL LOG_STDOUT
+#ifdef LOG_UDP
+        esp32Net.broadcast_str(str);
+#endif  // LOG_UDP
+
     }
 }
