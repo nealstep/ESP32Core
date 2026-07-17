@@ -88,6 +88,10 @@ void serial_setup(void) {
 #endif  // LOG_SERIAL
 
 void get_main_prefs() {
+    get_pref_str(Prefs::Keys::chip_name, prefs.chip_name,
+                 Prefs::Sizes::chip_name, Prefs::BadValues::chip_name, true,
+                 true, "MyChip");
+    // TODO: #9 Remove workaround chip name
     get_pref_u32(Prefs::Keys::keep_alive_int, prefs.keep_alive_int,
                  Prefs::BadValues::keep_alive_int);
     taskSendKeepAliveMsg.setInterval(prefs.keep_alive_int);
@@ -100,6 +104,11 @@ void get_main_prefs() {
 void setup(void) {
     delay(Constants::startup_delay);
 
+#ifdef IS_M5
+    auto cfg = M5.config();
+    M5.begin(cfg);
+#endif  // IS_M5
+
     // get preferences ready
     Log::Err err = prefs.open(Constants::prefs_name, true);
     if (err != Log::Err::NoError) {
@@ -111,9 +120,11 @@ void setup(void) {
     serial_setup();
 #endif  // LOG_SERIAL
     LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Starting);
+    DATA(Log::Data::U, Log::Name::MsgID, lg.get_msgid());
 
     // load preferences
     get_main_prefs();
+    DATA(Log::Data::Str, Log::Name::ChipName, prefs.chip_name);
     get_net_prefs();
     prefs.close();
 
@@ -146,8 +157,8 @@ void events_check(void) {
                 LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Connected);
                 break;
             case ESP32Net::NetMessage::Type::GotIP:
-                LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::GotIP,
-                      esp32Net.get_ip().toString().c_str());
+                DATA(Log::Data::Str, Log::Name::IP,
+                     esp32Net.get_ip().toString().c_str());
                 LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Broadcast,
                       esp32Net.broadcastIP.toString().c_str());
                 esp32Net.check_internet();

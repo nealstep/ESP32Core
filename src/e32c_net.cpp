@@ -37,6 +37,11 @@ void get_net_prefs(void) {
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
+
+    get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
+                 Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
+                 true, "192.168.8.11");
+    // TODO: #8 Remove workaround remote host
 }
 
 void wifi_connected(WiFiEvent_t event, WiFiEventInfo_t info) {
@@ -153,6 +158,8 @@ bool ESP32Net::Message::deserialize(uint8_t* data, size_t len) {
 // setup wifi and event handlers
 Log::Err ESP32Net::init(void) {
     LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::ESP32NetInit);
+
+    // create event queues
     netQueue = xQueueCreate(Config::net_queue_size, sizeof(NetMessage));
     if (netQueue == NULL) {
         LOG_E(Log::Uni::Net, Log::Err::CreateQueueFailed);
@@ -163,18 +170,25 @@ Log::Err ESP32Net::init(void) {
         LOG_E(Log::Uni::Net, Log::Err::CreateQueueFailed);
         return Log::Err::CreateQueueFailed;
     }
+
 #if USE_QUEUE
+    // create message queues
     local_q = new CircularQueue(prefs.local_queue_size);
     internet_q = new CircularQueue(prefs.internet_queue_size);
 #endif  // USE_QUEUE
+
 #if USE_AES
+    // setup aes key
     genAesKey();
 #endif  // USE_AES
+
+    // setup events
     WiFi.onEvent(wifi_connected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
     WiFi.onEvent(wifi_got_ip, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
     WiFi.onEvent(wifi_disconnected,
                  WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFi.begin(prefs.wifi_ssid, prefs.wifi_password);
+
     return Log::Err::NoError;
 }
 

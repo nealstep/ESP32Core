@@ -34,3 +34,10 @@
     X(Wrn, "Warning")    \
     X(Err, "Error")      \
     X(All, "All")
+
+#define DATA_LIST(X) \
+    X(U, "%s: %u") \
+    X(Str, "%s: %s")
+
+#define NAME_LIST(X) \
+    E32C_NAME_LIST(X)

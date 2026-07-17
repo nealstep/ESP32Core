@@ -1,5 +1,6 @@
 #pragma once
 
+#include "constants.hpp"
 #include "messages.hpp"
 
 #ifdef ARDUINO
@@ -22,7 +23,6 @@ void log_output_impl(const char* str, bool error, bool truncated);
 
 class Log {
    public:
-
     class Config {
        public:
         // sizes
@@ -44,6 +44,7 @@ class Log {
     enum class Sev : uint8_t { SEVERITY_LIST(GENERATE_ENUM) Count };
     enum class Err : uint16_t { ERROR_LIST(GENERATE_ENUM) Count };
     enum class Note : uint16_t { NOTICE_LIST(GENERATE_ENUM) Count };
+    enum class Data : uint16_t { DATA_LIST(GENERATE_ENUM) Count };
 #undef GENERATE_ENUM
 
     class Word {
@@ -51,8 +52,16 @@ class Log {
 #define AS_CONSTCHAR(name, string) \
     static constexpr const char* const name = string;
         WORD_LIST(AS_CONSTCHAR)
-    };
 #undef AS_CONSTCHAR
+    };
+
+    class Name {
+       public:
+#define AS_CONSTCHAR(name, string) \
+    static constexpr const char* const name = string;
+        NAME_LIST(AS_CONSTCHAR)
+#undef AS_CONSTCHAR
+    };
 
 #define GENERATE_STRING(id, msg) msg,
     static constexpr const char* const Units[] = {"Unamed",
@@ -62,6 +71,7 @@ class Log {
     static constexpr const char* const Errors[] = {ERROR_LIST(GENERATE_STRING)};
     static constexpr const char* const Notices[] = {
         NOTICE_LIST(GENERATE_STRING)};
+    static constexpr const char* const Datas[] = {DATA_LIST(GENERATE_STRING)};
 #undef GENERATE_STRING
 
     // lazy singleton
@@ -91,9 +101,25 @@ class Log {
     constexpr const char* get_message(Note code) {
         return Notices[static_cast<uint16_t>(code)];
     }
+    constexpr const char* get_message(Data code) {
+        return Datas[static_cast<uint16_t>(code)];
+    }
 
     bool inCode(Uni item, Uni code) {
         return (static_cast<uint32_t>(item) & static_cast<uint32_t>(code)) != 0;
+    }
+
+    bool get_timestamp(char* buffer, size_t len) {
+        struct tm timeinfo;
+        bool overrun = false;
+        if (!getLocalTime(&timeinfo)) {
+            size_t sz = strlcpy(buffer, Log::Word::NoTime, len);
+            if (sz >= len) overrun = true;
+        } else {
+            size_t sz = strftime(buffer, len, Constants::time_fmt, &timeinfo);
+            if (sz >= len) overrun = true;
+        }
+        return overrun;
     }
 
     void vlog_impl(const char* file, int line, Uni unit, Sev svr,
@@ -103,13 +129,18 @@ class Log {
             if (unit != Uni::Unnamed)
                 if (!inCode(unit, unit_mask)) return;
         }
-
+        char ts[Constants::timestamp_size];
         char buffer[Config::max_message_size];
         bool truncated = false;
         bool error = false;
 
-        int len = snprintf(buffer, sizeof(buffer), "[%s:%d:%s:%s] ", file, line,
-                           get_message(unit), get_message(svr));
+        truncated = get_timestamp(ts, sizeof(ts));
+        int len = snprintf(buffer, sizeof(buffer), Constants::log_fmt, chipid_s,
+                           msgid, ts, get_message(unit), get_message(svr), file,
+                           line);
+        msgid++;
+        // reserve msgid 0
+        if (msgid == 0) msgid = 1;
         if (len < 0) {
             error = true;
         } else if (len < sizeof(buffer)) {
@@ -124,6 +155,40 @@ class Log {
         }
         if (error)
             log_output_impl(str, error, truncated);
+        else
+            log_output_impl(buffer, error, truncated);
+    }
+
+    void data_impl(Data code, ...) {
+        char ts[Constants::timestamp_size];
+        char buffer[Config::max_message_size];
+        bool truncated = false;
+        bool error = false;
+
+        truncated = get_timestamp(ts, sizeof(ts));
+        int len = snprintf(buffer, sizeof(buffer), Constants::data_fmt,
+                           chipid_s, msgid, ts);
+        msgid++;
+        // reserve msgid 0
+        if (msgid == 0) msgid = 1;
+        if (len < 0) {
+            error = true;
+        } else if (len < sizeof(buffer)) {
+            va_list(args);
+            va_start(args, code);
+            len = vsnprintf(buffer + len, sizeof(buffer) - len,
+                            get_message(code), args);
+            va_end(args);
+            if (len < 0) {
+                error = true;
+            } else if (len >= sizeof(buffer)) {
+                truncated = true;
+            }
+        } else {
+            truncated = true;
+        }
+        if (error)
+            log_output_impl(get_message(code), error, truncated);
         else
             log_output_impl(buffer, error, truncated);
     }
@@ -161,6 +226,7 @@ class Log {
     Uni get_unit_mask(void) { return unit_mask; }
     void set_severity(Sev code) { severity = code; }
     Sev get_severity(void) { return severity; }
+    uint32_t get_msgid(void) { return msgid; }
 
    private:
     // settings
@@ -168,11 +234,27 @@ class Log {
     uint8_t max_unit;
     Sev severity;
 
+    // ids
+    uint64_t chipid = ESP.getEfuseMac();
+    uint32_t msgid = 0;
+    char chipid_s[Constants::chipid_size];
+
     // hidden creator
     Log(void) {
         max_unit = __builtin_ctz(static_cast<uint32_t>(Uni::Last));
         set_unit_mask(DEF_UNIT);
         set_severity(DEF_SEVERITY);
+        // get unique name for chip
+        snprintf(chipid_s, sizeof(chipid_s), "%04X%08X",
+                 (uint16_t)(chipid >> 32), (uint32_t)chipid);
+#ifdef LOG_SERIAL
+        LOG_SERIAL.print("Chip ID: ");
+        LOG_SERIAL.println(chipid_s);
+#endif  // LOG_SERIAL
+
+        // get likely unique message id
+        msgid = esp_random();
+        if (msgid == 0) msgid = 1;  // reserve msgid 0
     }
 };
 
@@ -184,3 +266,4 @@ static Log& lg = Log::getInstance();
     lg.log_notice_impl(__FILE__, __LINE__, unit, svr, code, ##__VA_ARGS__)
 #define LOG_E(unit, code, ...) \
     lg.log_error_impl(__FILE__, __LINE__, unit, code, ##__VA_ARGS__)
+#define DATA(code, ...) lg.data_impl(code, ##__VA_ARGS__)
