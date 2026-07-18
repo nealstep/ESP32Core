@@ -54,6 +54,7 @@
     X(CirQPop, "CQ::pop: %d")                                    \
     X(Connected, "Connected")                                    \
     X(GotIP, "GotIP %s")                                         \
+    X(HaveIP, "Have IP")                                         \
     X(Broadcast, "BroadcastIP %s")                               \
     X(Disconnected, "Disconnected")                              \
     X(TimeSynced, "Time synced")                                 \

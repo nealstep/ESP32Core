@@ -66,4 +66,8 @@ while True:
         except Exception as e:
             print(f"Unexpected processing error: {e}")
     else:
-        print(f"{asof_str}|{addr[0]}:{data.decode()}")
+        try:
+            line = data.decode()
+        except UnicodeDecodeError:
+            line = data.hex()
+        print(f"{asof_str}|{addr[0]}:{line}")

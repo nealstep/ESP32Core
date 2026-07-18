@@ -13,6 +13,21 @@
 // async udo
 AsyncUDP audp;
 
+#if MESG_DEBUG
+void ESP32Net::dump_mesg(const Message& mesg, const char* title) {
+    LOG_SERIAL.println(title);
+    LOG_SERIAL.println(mesg.destination);
+    if (mesg.target == Message::Target::Local) {
+        LOG_SERIAL.println("Local");
+    } else if (mesg.target == Message::Target::Internet) {
+        LOG_SERIAL.println("Internet");
+    } else {
+        LOG_SERIAL.println("Unknown");
+    }
+    LOG_SERIAL.println(mesg.encrypt);
+}
+#endif  // MESG_DEBUG
+
 void get_net_prefs(void) {
     get_pref_str(Prefs::Keys::tz_full, prefs.tz_full, Prefs::Sizes::tz_full,
                  Prefs::BadValues::tz_full);
@@ -28,7 +43,8 @@ void get_net_prefs(void) {
     // TODO: #15 use use_aes flag
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
     // TODO: #17 encrypt local and fix missing value
-    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local, true, true, false);
+    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local, true, true,
+                  false);
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
@@ -113,6 +129,8 @@ bool ESP32Net::Message::serialize(uint8_t* data, size_t len) {
     //       Log::Word::Message, str);
     memcpy(ptr, &encrypt, sizeof(bool));
     ptr += sizeof(bool);
+    memcpy(ptr, &target, sizeof(Target));
+    ptr += sizeof(Target);
     memcpy(ptr, &raw_ip, sizeof(uint32_t));
     ptr += sizeof(uint32_t);
     memcpy(ptr, &port, sizeof(uint16_t));
@@ -130,6 +148,8 @@ bool ESP32Net::Message::deserialize(uint8_t* data, size_t len) {
     uint32_t raw_ip;
     memcpy(&encrypt, ptr, sizeof(bool));
     ptr += sizeof(bool);
+    memcpy(&target, ptr, sizeof(Target));
+    ptr += sizeof(Target);
     memcpy(&raw_ip, ptr, sizeof(uint32_t));
     ptr += sizeof(uint32_t);
     destination = IPAddress(raw_ip);
@@ -160,7 +180,8 @@ void ESP32Net::early_init(void) {
     get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
     // create message queues
     local_q = new CircularQueue(prefs.local_queue_size * Constants::bytes_kb);
-    internet_q = new CircularQueue(prefs.internet_queue_size * Constants::bytes_kb);
+    internet_q =
+        new CircularQueue(prefs.internet_queue_size * Constants::bytes_kb);
 #endif  // USE_QUEUE
     get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
                  Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
@@ -200,7 +221,10 @@ Log::Err ESP32Net::init(void) {
     return Log::Err::NoError;
 }
 
-void ESP32Net::set_ip_ready() { ip_ready = true; }
+void ESP32Net::set_ip_ready() {
+    LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::HaveIP);
+    ip_ready = true;
+}
 
 bool ESP32Net::check_internet(void) {
     LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::CheckInternet, WiFi.status(),
@@ -297,9 +321,10 @@ Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
         message.port = prefs.udp_data_port;
     else
         message.port = port;
-    if (have_ip()) {
-        if ((ip == broadcastIP) ||
-            (subnet_addr == ((uint32_t)ip & subnet_mask)))
+    if ((ip == broadcastIP) || (ip == broadAll)) {
+        message.target = Message::Target::Local;
+    } else if (have_ip()) {
+        if (subnet_addr == (((uint32_t)ip) & subnet_mask))
             message.target = Message::Target::Local;
         else
             message.target = Message::Target::Internet;
@@ -315,6 +340,9 @@ Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
 #endif  // LOG_SERIAL
         return Log::Err::StringTooBig;
     }
+#if MESG_DEBUG
+    if (message.str[0] == Constants::brd) dump_mesg(message, "send_str");
+#endif  // MESG_DEBUG
     if (!have_ip()) {
 #if USE_QUEUE
         if (prefs.use_queue) {
@@ -440,16 +468,28 @@ Log::Err ESP32Net::empty_queue(CircularQueue& q, bool local_only) {
             return Log::Err::DeserializeError;
         }
         if (mesg.target == Message::Target::Unknown) {
-            if (local_only) {
-                bool local = ((mesg.destination == broadcastIP) ||
-                              (subnet_addr ==
-                               ((uint32_t)mesg.destination & subnet_mask)));
-                if (local) {
-                    mesg.target = Message::Target::Local;
+#if MESG_DEBUG
+            if (mesg.str[0] == Constants::brd)
+                dump_mesg(mesg, "empty_queue first");
+#endif  // MESG_DEBUG
+            if (subnet_addr == ((uint32_t)mesg.destination & subnet_mask)) {
+                mesg.target = Message::Target::Local;
+#if MESG_DEBUG
+                if (mesg.str[0] == Constants::brd)
+                    dump_mesg(mesg, "empty_queue local");
+#endif  // MESG_DEBUG
+                send_message(mesg);
+            } else {
+                mesg.target = Message::Target::Internet;
+#if MESG_DEBUG
+                if (mesg.str[0] == Constants::brd)
+                    dump_mesg(mesg, "empty_queue internet");
+#endif  // MESG_DEBUG
+                if (local_only) {
+                    queue_message(*internet_q, mesg);
+                } else {
                     send_message(mesg);
                 }
-                mesg.target = Message::Target::Internet;
-                queue_message(*internet_q, mesg);
             }
         } else {
             send_message(mesg);
@@ -465,16 +505,25 @@ Log::Err ESP32Net::empty_queue(CircularQueue& q, bool local_only) {
 Log::Err ESP32Net::send_message(Message& mesg) {
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::SendMessage,
     //   mesg.destination.toString().c_str(), mesg.port, mesg.str);
+#if MESG_DEBUG
+    if (mesg.str[0] == Constants::brd) dump_mesg(mesg, "send_msg first");
+#endif  // MESG_DEBUG
     size_t len = strlen(mesg.str) + 1;
     if (!have_ip()) {
 #ifdef LOG_SERIAL
         LOG_SERIAL.println("send_message: No Network!!!");
 #endif  // LOG_SERIAL
     }
-
+    if (mesg.destination == broadAll) {
+        mesg.target = Message::Target::Local;
+        mesg.destination = broadcastIP;
+    }
+#if MESG_DEBUG
+    if (mesg.str[0] == Constants::brd) dump_mesg(mesg, "send_mesg last");
+#endif  // MESG_DEBUG
 #if USE_AES
     if (prefs.use_aes) {
-        if ((!prefs.encrypt_local) && (mesg.target == Message::Target::Local)) 
+        if ((!prefs.encrypt_local) && (mesg.target == Message::Target::Local))
             mesg.encrypt = false;
         if (mesg.encrypt) {
             // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::Encrypting);

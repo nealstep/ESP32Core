@@ -151,20 +151,24 @@ void setup(void) {
     serial_setup();
 #endif  // LOG_SERIAL
     esp32Net.early_init();
+    delay(Constants::tiny_delay);
     LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Starting);
     DATA(Constants::dat, Log::Data::U, Log::Name::MsgID, lg.get_msgid());
 
     // load preferences
+    delay(Constants::tiny_delay);
     get_main_prefs();
     DATA(Constants::dat, Log::Data::Str, Log::Name::ChipName, prefs.chip_name);
     get_net_prefs();
     prefs.close();
 
     // display version
+    delay(Constants::tiny_delay);
     log_version();
     log_diagnostics();
 
     // start network
+    delay(Constants::tiny_delay);
     err = esp32Net.init();
     if (err != Log::Err::NoError) {
         LOG_E(Log::Uni::Main, err);
@@ -172,12 +176,14 @@ void setup(void) {
     }
 
     // enable and start all tasks
+    delay(Constants::tiny_delay);
     for (auto& task : tasks) {
         runner.addTask(*task);
         task->enable();
     }
 
     // we are ready
+    delay(Constants::tiny_delay);
     LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::Started);
 }
 
@@ -261,6 +267,9 @@ void loop(void) {
 #endif  // LOG_SERIAL
     command_handler();
 
+    // give esp32 some time
+    delay(Constants::tiny_delay);
+
     // check if anything needs handling
     events_check();
     ota_check();
@@ -270,6 +279,9 @@ void loop(void) {
 
     // check if jobs need running
     runner.execute();
+
+    // give esp32 some time
+    delay(Constants::tiny_delay);
 
     loop_counter++;
 }

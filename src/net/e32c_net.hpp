@@ -58,11 +58,7 @@ class ESP32Net {
 
     class Message {
        public:
-        enum class Target {
-            Unknown,
-            Local,
-            Internet
-        };
+        enum class Target { Unknown, Local, Internet };
         bool encrypt;
         Target target;
         IPAddress destination;
@@ -71,7 +67,7 @@ class ESP32Net {
 
         // we will coerce IPaddress in a uint32_t for storage
         static constexpr size_t base_size =
-            sizeof(bool) + sizeof(uint32_t) + sizeof(uint16_t) + sizeof(size_t);
+            sizeof(bool) + sizeof(target) + sizeof(uint32_t) + sizeof(uint16_t) + sizeof(size_t);
         static constexpr size_t max_size = base_size + Config::udp_msg_size;
 
         size_t size(void) { return base_size + strlen(str) + 1; }
@@ -103,7 +99,8 @@ class ESP32Net {
     bool ota_init = false;
 
     // broadcast ip
-    IPAddress broadcastIP;
+    IPAddress broadcastIP = Constants::BroadAll;
+    IPAddress broadAll = Constants::BroadAll;
 
     // queues
     QueueHandle_t netQueue;
@@ -125,7 +122,10 @@ class ESP32Net {
     bool have_ip(void) { return ip_ready; }
     void set_ip(IPAddress ip) {
         local_ip = ip;
-        if (ip == INADDR_NONE) ip_ready = false;
+        if (ip == INADDR_NONE) {
+            broadcastIP = Constants::BroadAll;
+            ip_ready = false;
+        }
     }
     void set_ip_ready();
     void set_subnet_mask(IPAddress smask) {
@@ -142,10 +142,7 @@ class ESP32Net {
     void queue_net_msg(NetMessage::Type type, uint8_t code);
     Log::Err broadcast_str(const char* str, bool encrypt = use_aes,
                            uint16_t port = 0) {
-        if (broadcastIP != INADDR_NONE)
-            return send_str(broadcastIP, str, encrypt, port);
-        else
-            return Log::Err::NoError;
+        return send_str(broadcastIP, str, encrypt, port);
     }
     Log::Err log_str(const char* str, bool encrypt = use_aes,
                      uint16_t port = 0) {
@@ -202,7 +199,9 @@ class ESP32Net {
     ESP32Net(void) {};
 
 #ifdef ARDUINO
-
+#if MESG_DEBUG
+    void dump_mesg(const Message& mesg, const char* title);
+#endif  // MESG_DEBUG
     Log::Err connection_check(IPAddress ip, bool& local);
 #if USE_QUEUE
     Log::Err queue_message(CircularQueue& q, Message& m);
