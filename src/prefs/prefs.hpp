@@ -1,1 +1,1 @@
-../../../ESP32Core-Preferences/src/prefs.hpp
+../../../ESP32Core-Preferences/src/prefs/prefs.hpp

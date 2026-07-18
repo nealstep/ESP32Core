@@ -41,9 +41,7 @@ void get_net_prefs(void) {
                  false);
 #if USE_AES
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
-    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local, true, true,
-                  false);
-    // TODO: #19 fix workaround encrypt local
+    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local)
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
@@ -169,9 +167,6 @@ void ESP32Net::early_init(void) {
                  Prefs::BadValues::local_queue_size);
     get_pref_u16(Prefs::Keys::internet_queue_size, prefs.internet_queue_size,
                  Prefs::BadValues::internet_queue_size);
-    prefs.local_queue_size = 25;
-    prefs.internet_queue_size = 50;
-    // TODO: #12 fix hard code
     get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
                  Prefs::BadValues::udp_data_port);
 #if USE_QUEUE
@@ -182,10 +177,8 @@ void ESP32Net::early_init(void) {
         new CircularQueue(prefs.internet_queue_size * Constants::bytes_kb);
 #endif  // USE_QUEUE
     get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
-                 Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
-                 true, "159.203.52.199");
+                 Prefs::Sizes::remote_host, Prefs::BadValues::remote_host);
     esp32Net.update_remote_host(prefs.remote_host);
-    // TODO: #8 Remove workaround remote host
 }
 
 // setup wifi and event handlers
