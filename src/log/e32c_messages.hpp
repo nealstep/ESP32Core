@@ -42,6 +42,7 @@
     X(CirQCreate, "CQ::CircularQueue(%ld, %d)")                  \
     X(ComputedEntries, "Computed entries: %d")                   \
     X(PSRAMFound, "PSRAM found")                                 \
+    X(PSRAMNotFound, "PSRAM not found")                          \
     X(PSRAMCreated, "PSRAM %s created")                          \
     X(MallocCreated, "Malloc %s created")                        \
     X(FreeCapacity, "Free capacity: %u")                         \

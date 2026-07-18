@@ -60,7 +60,7 @@ while True:
             cipher = AES.new(aes_key, AES.MODE_GCM, nonce=iv)
             decrypted_bytes = cipher.decrypt_and_verify(ciphertext, tag)
             plaintext_str = decrypted_bytes.decode("utf-8")
-            print(f"{asof_str}^{addr[0]}^{plaintext_str}")
+            print(f"{asof_str}|{addr[0]}:{plaintext_str}")
         except ValueError as e:
             print(f"Decryption failed or corrupt data from {addr} {e}")
         except Exception as e:

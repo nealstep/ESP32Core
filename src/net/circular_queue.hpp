@@ -35,7 +35,7 @@ class CircularQueue {
 #ifdef ARDUINO_ARCH_ESP32
         // use psram if possible
         if (psramFound()) {
-            LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::PSRAMFound);
+            LOG_N(Log::Uni::CirQ, Log::Sev::All, Log::Note::PSRAMFound);
             buffer = (uint8_t*)ps_malloc(requested_capacity);
             if (buffer != nullptr) {
                 LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::PSRAMCreated,
@@ -46,6 +46,9 @@ class CircularQueue {
                 LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::PSRAMCreated,
                       Log::Word::Records);
             }
+        } else {
+            LOG_N(Log::Uni::CirQ, Log::Sev::All, Log::Note::PSRAMNotFound,
+                  Log::Word::Buffer);
         }
 #endif  // ARDUINO_ARCH_ESP32
         if (buffer == nullptr) {
