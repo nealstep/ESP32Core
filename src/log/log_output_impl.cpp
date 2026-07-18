@@ -11,8 +11,6 @@
 #include "net/e32c_net.hpp"
 #endif  // LOG_UDP
 
-
-// TODO: #6 add remote logging
 void log_output_impl(const char* str, bool error, bool truncated) {
     if (error) {
         // there was a an error expanding the string
@@ -43,7 +41,7 @@ void log_output_impl(const char* str, bool error, bool truncated) {
 #endif  // LOG_SERIAL LOG_STDOUT
 #ifdef LOG_UDP
         if (str[0] == Constants::brd) {
-        //     str[0] = Constants::dat;
+            //     str[0] = Constants::dat;
             esp32Net.broadcast_str(str);
         }
         esp32Net.log_str(str);

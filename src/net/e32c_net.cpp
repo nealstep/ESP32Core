@@ -149,7 +149,7 @@ void ESP32Net::early_init(void) {
                  Prefs::BadValues::internet_queue_size);
     prefs.local_queue_size = 25 * 1024;
     prefs.internet_queue_size = 50 * 1024;
-    // TODO: fix hard code
+    // TODO: #12 fix hard code
     get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
                  Prefs::BadValues::udp_data_port);
     get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
@@ -160,7 +160,7 @@ void ESP32Net::early_init(void) {
 #endif  // USE_QUEUE
     get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
                  Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
-                 true, "192.168.8.11");
+                 true, "tiffin.bakerst.org");
     esp32Net.update_remote_host(prefs.remote_host);
     // TODO: #8 Remove workaround remote host
 }
@@ -273,9 +273,9 @@ void ESP32Net::queue_net_msg(NetMessage::Type type, uint8_t code) {
 Log::Err ESP32Net::check_queue(void) {
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::CheckQueue);
     Log::Err code = Log::Err::NoError;
-    if (have_ip()) code = empty_queue(*local_q, false);
+    if (have_ip()) code = empty_queue(*local_q, !internet_connected);
     if (code != Log::Err::NoError) return code;
-    if (internet_connected) code = empty_queue(*internet_q, true);
+    if (internet_connected) code = empty_queue(*internet_q, false);
     return code;
 }
 #endif  // USE_QUEUE
@@ -327,7 +327,6 @@ Log::Err ESP32Net::update_ssid(const char* new_ssid) {
     if (sz >= Config::ssid_size) {
         return Log::Err::StringTooBig;
     }
-    // TODO: #2 Save wifi_ssid to preferences
     return Log::Err::NoError;
 }
 
@@ -338,7 +337,6 @@ Log::Err ESP32Net::update_password(const char* new_password) {
     if (sz >= Config::passwd_size) {
         return Log::Err::StringTooBig;
     }
-    // TODO: #3 Save wifi_password to preferences
     return Log::Err::NoError;
 }
 
@@ -351,7 +349,6 @@ Log::Err ESP32Net::update_ota_password(
         return Log::Err::StringTooBig;
     }
     ArduinoOTA.setPassword(prefs.ota_password);
-    // TODO: #1 Save ota_password to preferences
     return Log::Err::NoError;
 }
 
@@ -364,7 +361,6 @@ Log::Err ESP32Net::update_aes_key(const char* new_hex_key) {
         return Log::Err::StringTooBig;
     }
     genAesKey();
-    // TODO: #4 Save hex_key to preferences
     return Log::Err::NoError;
 }
 
@@ -393,7 +389,7 @@ Log::Err ESP32Net::queue_message(CircularQueue& q, Message& m) {
     return Log::Err::NoError;
 }
 
-Log::Err ESP32Net::empty_queue(CircularQueue& q, bool internet) {
+Log::Err ESP32Net::empty_queue(CircularQueue& q, bool local_only) {
     uint8_t data[Config::udp_msg_size];
     Entry dlen;
     Message mesg;
@@ -417,8 +413,16 @@ Log::Err ESP32Net::empty_queue(CircularQueue& q, bool internet) {
 #endif  // LOG_SERIAL
             return Log::Err::DeserializeError;
         }
-        // TODO: #11 Check if really remote and store in internet queue
-        send_message(mesg);
+        if (local_only) {
+            bool local =
+                ((mesg.destination == broadcastIP) ||
+                 (subnet_addr == ((uint32_t)mesg.destination & subnet_mask)));
+            if (local) {
+                send_message(mesg);
+            } else {
+                queue_message(*internet_q, mesg);
+            }
+        }
         ret = q.pop(data, sizeof(data), dlen);
         if (!looped) looped = true;
     }

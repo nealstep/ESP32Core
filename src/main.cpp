@@ -132,7 +132,6 @@ void get_main_prefs() {
     taskCheckInternet.setInterval(prefs.check_internet_int);
 }
 
-// TODO: #7 add a device name (internal) and a pretty name (prefs)
 void setup(void) {
     delay(Constants::startup_delay);
 
@@ -240,12 +239,27 @@ void events_check(void) {
 void updateM5(void) { M5.update(); }
 #endif
 
+#ifdef LOG_SERIAL
+void serial_in_check() {
+    // TODO: #13 Handle serial input
+}
+#endif  // LOG_SERIAL
+
+void command_handler(void) {
+    // TODO: #14 Check if we have commands to handle and handle them
+    // amongst these will be updating and saving to prefs
+}
+
 void loop(void) {
     if (loop_counter > Constants::loop_interval) {
-        LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::LoopedN,
-              loop_counter);
+        LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::LoopedN, loop_counter);
         loop_counter = 0;
     }
+
+#ifdef LOG_SERIAL
+    serial_in_check();
+#endif  // LOG_SERIAL
+    command_handler();
 
     // check if anything needs handling
     events_check();

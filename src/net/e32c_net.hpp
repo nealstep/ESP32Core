@@ -200,7 +200,7 @@ class ESP32Net {
     Log::Err connection_check(IPAddress ip, bool& local);
 #if USE_QUEUE
     Log::Err queue_message(CircularQueue& q, Message& m);
-    Log::Err empty_queue(CircularQueue& q, bool internet);
+    Log::Err empty_queue(CircularQueue& q, bool local_only);
 #endif  // USE_QUEUE
     Log::Err send_message(Message& message);
 #if USE_AES
