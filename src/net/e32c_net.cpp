@@ -24,9 +24,6 @@ void get_net_prefs(void) {
     get_pref_str(Prefs::Keys::ota_password, prefs.ota_password,
                  Prefs::Sizes::ota_password, Prefs::BadValues::ota_password,
                  false);
-    get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
-                 Prefs::BadValues::udp_data_port);
-    get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
 
 #if USE_AES
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
@@ -153,6 +150,9 @@ void ESP32Net::early_init(void) {
                  Prefs::BadValues::internet_queue_size);
     prefs.local_queue_size = 25 * 1024;
     prefs.internet_queue_size = 50 * 1024;
+    get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
+                 Prefs::BadValues::udp_data_port);
+    get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
     // TODO: fix hard code
 #if USE_QUEUE
     // create message queues
