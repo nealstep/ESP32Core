@@ -24,7 +24,6 @@ void get_net_prefs(void) {
     get_pref_str(Prefs::Keys::ota_password, prefs.ota_password,
                  Prefs::Sizes::ota_password, Prefs::BadValues::ota_password,
                  false);
-
 #if USE_AES
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
@@ -150,10 +149,10 @@ void ESP32Net::early_init(void) {
                  Prefs::BadValues::internet_queue_size);
     prefs.local_queue_size = 25 * 1024;
     prefs.internet_queue_size = 50 * 1024;
+    // TODO: fix hard code
     get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
                  Prefs::BadValues::udp_data_port);
     get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
-    // TODO: fix hard code
 #if USE_QUEUE
     // create message queues
     local_q = new CircularQueue(prefs.local_queue_size);
@@ -453,6 +452,9 @@ Log::Err ESP32Net::send_message(Message& mesg) {
         mbedtls_gcm_init(&gcm);
         int ret = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, aes_key, 256);
         if (ret != 0) {
+#ifdef LOG_SERIAL
+            LOG_SERIAL.println("send_message: set key failed");
+#endif  // LOG_SERIAL
             mbedtls_gcm_free(&gcm);
             return Log::Err::EncryptSetKeyFailed;
         }
@@ -460,36 +462,26 @@ Log::Err ESP32Net::send_message(Message& mesg) {
             &gcm, MBEDTLS_GCM_ENCRYPT, len, iv, 12, NULL, 0,
             reinterpret_cast<const uint8_t*>(mesg.str), ciphertext, 16, tag);
         if (ret != 0) {
+#ifdef LOG_SERIAL
+            LOG_SERIAL.println("send_message: crypt error");
+#endif  // LOG_SERIAL
             mbedtls_gcm_free(&gcm);
             return Log::Err::EncryptCryptError;
         }
         mbedtls_gcm_free(&gcm);
-        ret = wudp.beginPacket(mesg.destination, mesg.port);
-        if (ret != 0) {
-            return Log::Err::UDPBeginPacketFailed;
-        }
-        size_t written = wudp.write(iv, 12);
-        if (written != 12) {
-            return Log::Err::UDPWriteFailed;
-        }
-        written = wudp.write(tag, 16);
-        if (written != 16) {
-            return Log::Err::UDPWriteFailed;
-        }
-        written = wudp.write(ciphertext, len);
-        if (written != len) {
-            return Log::Err::UDPWriteFailed;
-        }
-        ret = wudp.endPacket();
-        if (ret != 0) {
-            return Log::Err::UDPEndPacketFailed;
-        }
+        uint8_t* ptr = send_buffer;
+        memcpy(ptr, iv, Config::iv_size);
+        ptr += Config::iv_size;
+        memcpy(ptr, tag, Config::tag_size);
+        ptr += Config::tag_size;
+        memcpy(ptr, ciphertext, len);
+        audp.writeTo(send_buffer, Config::prefix_size + len, mesg.destination,
+                     mesg.port);
         return Log::Err::NoError;
     }
 #endif  // USE_AES
-    size_t payload_len = strlen(mesg.str);
-    memcpy(send_buffer, mesg.str, payload_len);
-    audp.writeTo(send_buffer, payload_len, mesg.destination, mesg.port);
+    memcpy(send_buffer, mesg.str, len);
+    audp.writeTo(send_buffer, len, mesg.destination, mesg.port);
     return Log::Err::NoError;
 }
 

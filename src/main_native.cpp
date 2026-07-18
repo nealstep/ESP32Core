@@ -72,4 +72,4 @@ int main(int argc, char* argv[]) {
 }
 #endif  // PIO_UNIT_TESTING
 
-#endif !ARDUINO
+#endif  // !ARDUINO

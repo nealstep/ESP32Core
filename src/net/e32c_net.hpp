@@ -177,7 +177,11 @@ class ESP32Net {
     IPAddress remote_host = INADDR_NONE;
     bool ip_ready = false;
 
+#if USE_AES
+    uint8_t send_buffer[Config::udp_msg_size + Config::prefix_size];
+#else
     uint8_t send_buffer[Config::udp_msg_size];
+#endif  // USE_AES ELSE
 
 #if USE_AES
     uint8_t aes_key[Config::aes_key_size];
