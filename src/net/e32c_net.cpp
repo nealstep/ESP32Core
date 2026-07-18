@@ -25,7 +25,10 @@ void get_net_prefs(void) {
                  Prefs::Sizes::ota_password, Prefs::BadValues::ota_password,
                  false);
 #if USE_AES
+    // TODO: #15 use use_aes flag
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
+    // TODO: #17 encrypt local and fix missing value
+    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local, false);
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
@@ -152,8 +155,9 @@ void ESP32Net::early_init(void) {
     // TODO: #12 fix hard code
     get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
                  Prefs::BadValues::udp_data_port);
-    get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
 #if USE_QUEUE
+    // TODO: #16 use use_queue flag
+    get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
     // create message queues
     local_q = new CircularQueue(prefs.local_queue_size);
     internet_q = new CircularQueue(prefs.internet_queue_size);
@@ -280,6 +284,7 @@ Log::Err ESP32Net::check_queue(void) {
 }
 #endif  // USE_QUEUE
 
+// TODO: #18 clean up local internet. always add to local and then add to internet later
 Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
                             uint16_t port) {
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::SendStr, str);
