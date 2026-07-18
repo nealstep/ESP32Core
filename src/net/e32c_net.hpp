@@ -58,7 +58,13 @@ class ESP32Net {
 
     class Message {
        public:
+        enum class Target {
+            Unknown,
+            Local,
+            Internet
+        };
         bool encrypt;
+        Target target;
         IPAddress destination;
         uint16_t port;
         char str[Config::udp_msg_size];

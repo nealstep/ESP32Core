@@ -25,6 +25,8 @@ static constexpr size_t chipid_size = 17;
 static constexpr size_t timestamp_size = 32;
 static constexpr size_t name_size = 32;
 static constexpr size_t kind_size = 16;
+static constexpr size_t bytes_kb = 1024;
+
 
 // numbers
 static constexpr uint32_t million = 1000000;

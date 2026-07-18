@@ -14,7 +14,7 @@ typedef uint16_t Entry;
 
 class CircularQueue {
    private:
-    static constexpr uint16_t avg_message_size = 250;
+    static constexpr uint16_t avg_message_size = 200;
     static constexpr const char* const s_buffer = "buffer";
     static constexpr const char* const s_records = "entries";
 

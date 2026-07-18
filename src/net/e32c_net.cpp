@@ -28,7 +28,7 @@ void get_net_prefs(void) {
     // TODO: #15 use use_aes flag
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
     // TODO: #17 encrypt local and fix missing value
-    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local, false);
+    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local, true, true, false);
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
@@ -150,8 +150,8 @@ void ESP32Net::early_init(void) {
                  Prefs::BadValues::local_queue_size);
     get_pref_u16(Prefs::Keys::internet_queue_size, prefs.internet_queue_size,
                  Prefs::BadValues::internet_queue_size);
-    prefs.local_queue_size = 25 * 1024;
-    prefs.internet_queue_size = 50 * 1024;
+    prefs.local_queue_size = 25;
+    prefs.internet_queue_size = 50;
     // TODO: #12 fix hard code
     get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
                  Prefs::BadValues::udp_data_port);
@@ -159,12 +159,12 @@ void ESP32Net::early_init(void) {
     // TODO: #16 use use_queue flag
     get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
     // create message queues
-    local_q = new CircularQueue(prefs.local_queue_size);
-    internet_q = new CircularQueue(prefs.internet_queue_size);
+    local_q = new CircularQueue(prefs.local_queue_size * Constants::bytes_kb);
+    internet_q = new CircularQueue(prefs.internet_queue_size * Constants::bytes_kb);
 #endif  // USE_QUEUE
     get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
                  Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
-                 true, "tiffin.bakerst.org");
+                 true, "159.203.52.199");
     esp32Net.update_remote_host(prefs.remote_host);
     // TODO: #8 Remove workaround remote host
 }
@@ -232,7 +232,9 @@ bool ESP32Net::check_internet(void) {
                                            Config::nocode);
             }
 #if USE_QUEUE
-            check_queue();
+            if (prefs.use_queue) {
+                check_queue();
+            }
 #endif  // USE_QUEUE
             return true;
         }
@@ -284,7 +286,8 @@ Log::Err ESP32Net::check_queue(void) {
 }
 #endif  // USE_QUEUE
 
-// TODO: #18 clean up local internet. always add to local and then add to internet later
+// TODO: #18 clean up local internet. always add to local and then add to
+// internet later
 Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
                             uint16_t port) {
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::SendStr, str);
@@ -294,8 +297,15 @@ Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
         message.port = prefs.udp_data_port;
     else
         message.port = port;
-    bool local =
-        ((ip == broadcastIP) || (subnet_addr == ((uint32_t)ip & subnet_mask)));
+    if (have_ip()) {
+        if ((ip == broadcastIP) ||
+            (subnet_addr == ((uint32_t)ip & subnet_mask)))
+            message.target = Message::Target::Local;
+        else
+            message.target = Message::Target::Internet;
+    } else {
+        message.target = Message::Target::Unknown;
+    }
     message.encrypt = encrypt;
     message.destination = ip;
     size_t sz = strlcpy(message.str, str, Config::udp_msg_size);
@@ -305,22 +315,33 @@ Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
 #endif  // LOG_SERIAL
         return Log::Err::StringTooBig;
     }
-    if ((local) && (!have_ip())) {
+    if (!have_ip()) {
 #if USE_QUEUE
-        code = queue_message(*local_q, message);
-        if (code != Log::Err::NoError) return code;
+        if (prefs.use_queue) {
+            if (message.target == Message::Target::Internet) {
+                code = queue_message(*internet_q, message);
+            } else {
+                code = queue_message(*local_q, message);
+            }
+            if (code != Log::Err::NoError) return code;
+        }
 #endif  // USE_QUEUE
         return Log::Err::NoNetwork;
-    } else if ((!local) && (!internet_connected)) {
+    } else if ((message.target == Message::Target::Internet) &&
+               (!internet_connected)) {
 #if USE_QUEUE
-        code = queue_message(*internet_q, message);
-        if (code != Log::Err::NoError) return code;
+        if (prefs.use_queue) {
+            code = queue_message(*internet_q, message);
+            if (code != Log::Err::NoError) return code;
+        }
 #endif  // USE_QUEUE
         return Log::Err::NoInternet;
     }
 #if USE_QUEUE
-    code = check_queue();
-    if (code != Log::Err::NoError) return code;
+    if (prefs.use_queue) {
+        code = check_queue();
+        if (code != Log::Err::NoError) return code;
+    }
 #endif  // USE_QUEUE
     code = send_message(message);
     return code;
@@ -418,15 +439,20 @@ Log::Err ESP32Net::empty_queue(CircularQueue& q, bool local_only) {
 #endif  // LOG_SERIAL
             return Log::Err::DeserializeError;
         }
-        if (local_only) {
-            bool local =
-                ((mesg.destination == broadcastIP) ||
-                 (subnet_addr == ((uint32_t)mesg.destination & subnet_mask)));
-            if (local) {
-                send_message(mesg);
-            } else {
+        if (mesg.target == Message::Target::Unknown) {
+            if (local_only) {
+                bool local = ((mesg.destination == broadcastIP) ||
+                              (subnet_addr ==
+                               ((uint32_t)mesg.destination & subnet_mask)));
+                if (local) {
+                    mesg.target = Message::Target::Local;
+                    send_message(mesg);
+                }
+                mesg.target = Message::Target::Internet;
                 queue_message(*internet_q, mesg);
             }
+        } else {
+            send_message(mesg);
         }
         ret = q.pop(data, sizeof(data), dlen);
         if (!looped) looped = true;
@@ -447,46 +473,52 @@ Log::Err ESP32Net::send_message(Message& mesg) {
     }
 
 #if USE_AES
-    if (mesg.encrypt) {
-        // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::Encrypting);
-        uint8_t iv[Config::iv_size];
-        uint8_t tag[Config::tag_size];
-        uint8_t ciphertext[len];
+    if (prefs.use_aes) {
+        if ((!prefs.encrypt_local) && (mesg.target == Message::Target::Local)) 
+            mesg.encrypt = false;
+        if (mesg.encrypt) {
+            // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::Encrypting);
+            uint8_t iv[Config::iv_size];
+            uint8_t tag[Config::tag_size];
+            uint8_t ciphertext[len];
 
-        for (int i = 0; i < 12; i++) {
-            iv[i] = esp_random() % 256;
-        }
+            for (int i = 0; i < 12; i++) {
+                iv[i] = esp_random() % 256;
+            }
 
-        mbedtls_gcm_context gcm;
-        mbedtls_gcm_init(&gcm);
-        int ret = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, aes_key, 256);
-        if (ret != 0) {
+            mbedtls_gcm_context gcm;
+            mbedtls_gcm_init(&gcm);
+            int ret =
+                mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, aes_key, 256);
+            if (ret != 0) {
 #ifdef LOG_SERIAL
-            LOG_SERIAL.println("send_message: set key failed");
+                LOG_SERIAL.println("send_message: set key failed");
 #endif  // LOG_SERIAL
-            mbedtls_gcm_free(&gcm);
-            return Log::Err::EncryptSetKeyFailed;
-        }
-        ret = mbedtls_gcm_crypt_and_tag(
-            &gcm, MBEDTLS_GCM_ENCRYPT, len, iv, 12, NULL, 0,
-            reinterpret_cast<const uint8_t*>(mesg.str), ciphertext, 16, tag);
-        if (ret != 0) {
+                mbedtls_gcm_free(&gcm);
+                return Log::Err::EncryptSetKeyFailed;
+            }
+            ret = mbedtls_gcm_crypt_and_tag(
+                &gcm, MBEDTLS_GCM_ENCRYPT, len, iv, 12, NULL, 0,
+                reinterpret_cast<const uint8_t*>(mesg.str), ciphertext, 16,
+                tag);
+            if (ret != 0) {
 #ifdef LOG_SERIAL
-            LOG_SERIAL.println("send_message: crypt error");
+                LOG_SERIAL.println("send_message: crypt error");
 #endif  // LOG_SERIAL
+                mbedtls_gcm_free(&gcm);
+                return Log::Err::EncryptCryptError;
+            }
             mbedtls_gcm_free(&gcm);
-            return Log::Err::EncryptCryptError;
+            uint8_t* ptr = send_buffer;
+            memcpy(ptr, iv, Config::iv_size);
+            ptr += Config::iv_size;
+            memcpy(ptr, tag, Config::tag_size);
+            ptr += Config::tag_size;
+            memcpy(ptr, ciphertext, len);
+            audp.writeTo(send_buffer, Config::prefix_size + len,
+                         mesg.destination, mesg.port);
+            return Log::Err::NoError;
         }
-        mbedtls_gcm_free(&gcm);
-        uint8_t* ptr = send_buffer;
-        memcpy(ptr, iv, Config::iv_size);
-        ptr += Config::iv_size;
-        memcpy(ptr, tag, Config::tag_size);
-        ptr += Config::tag_size;
-        memcpy(ptr, ciphertext, len);
-        audp.writeTo(send_buffer, Config::prefix_size + len, mesg.destination,
-                     mesg.port);
-        return Log::Err::NoError;
     }
 #endif  // USE_AES
     memcpy(send_buffer, mesg.str, len);
