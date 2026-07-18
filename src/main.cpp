@@ -19,16 +19,16 @@
 #ifdef M_S_DUMMY
 #include "modules/m_s_dummy.hpp"
 M_S_Dummy m_s_dummy_1_1(1, 1);
-constexpr uint32_t m_s_dummy_1_1_int = 4 * Constants::sec_ms;
+constexpr uint32_t m_s_dummy_1_1_int =
+    1 * Constants::min_sec * Constants::sec_ms;
 
 void m_s_dummy_1_1_chk(void) {
-    DATA(Log::Data::SU, m_s_dummy_1_1.get_name(), m_s_dummy_1_1.s1, m_s_dummy_1_1.get_s1());
+    DATA(Constants::brd, Log::Data::SU, m_s_dummy_1_1.get_name(),
+         m_s_dummy_1_1.s1, m_s_dummy_1_1.get_s1());
 }
 #endif  // M_S_DUMMY
 
-namespace Global {
 uint32_t loop_counter = 0;
-}
 
 #ifdef ARDUINO
 
@@ -36,10 +36,11 @@ uint32_t loop_counter = 0;
 Scheduler runner;
 
 // task wrappers
-void keepAliveMsg() {
+void keepAliveMsg(void) {
     LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::KeepAlive);
 }
-void checkInternet() { esp32Net.check_internet(); }
+
+void checkInternet(void) { esp32Net.check_internet(); }
 
 // create tasks
 Task taskSendKeepAliveMsg(prefs.keep_alive_int, TASK_FOREVER, &keepAliveMsg);
@@ -150,12 +151,13 @@ void setup(void) {
 #ifdef LOG_SERIAL
     serial_setup();
 #endif  // LOG_SERIAL
+    esp32Net.early_init();
     LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Starting);
-    DATA(Log::Data::U, Log::Name::MsgID, lg.get_msgid());
+    DATA(Constants::dat, Log::Data::U, Log::Name::MsgID, lg.get_msgid());
 
     // load preferences
     get_main_prefs();
-    DATA(Log::Data::Str, Log::Name::ChipName, prefs.chip_name);
+    DATA(Constants::dat, Log::Data::Str, Log::Name::ChipName, prefs.chip_name);
     get_net_prefs();
     prefs.close();
 
@@ -169,10 +171,6 @@ void setup(void) {
         LOG_E(Log::Uni::Main, err);
         die();
     }
-
-    // test m_s_dummy_1_1
-    LOG_SERIAL.println(m_s_dummy_1_1.get_name());
-    LOG_SERIAL.println(m_s_dummy_1_1.get_s1());
 
     // enable and start all tasks
     for (auto& task : tasks) {
@@ -193,11 +191,11 @@ void events_check(void) {
                 LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Connected);
                 break;
             case ESP32Net::NetMessage::Type::GotIP:
-                DATA(Log::Data::Str, Log::Name::IP,
+                DATA(Constants::dat, Log::Data::Str, Log::Name::IP,
                      esp32Net.get_ip().toString().c_str());
                 LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Broadcast,
                       esp32Net.broadcastIP.toString().c_str());
-                esp32Net.check_internet();
+                esp32Net.set_ip_ready();
                 break;
             case ESP32Net::NetMessage::Type::Disconnected:
                 LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::Disconnected);
@@ -243,10 +241,10 @@ void updateM5(void) { M5.update(); }
 #endif
 
 void loop(void) {
-    if (Global::loop_counter > Constants::loop_interval) {
+    if (loop_counter > Constants::loop_interval) {
         LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::LoopedN,
-              Global::loop_counter);
-        Global::loop_counter = 0;
+              loop_counter);
+        loop_counter = 0;
     }
 
     // check if anything needs handling
@@ -259,80 +257,7 @@ void loop(void) {
     // check if jobs need running
     runner.execute();
 
-    Global::loop_counter++;
+    loop_counter++;
 }
 
-#else  // !ARDUINO
-
-#include <iostream>
-
-#ifndef PIO_UNIT_TESTING
-
-void test(void) {
-    uint16_t times = 0;
-    LOG_N(Log::Uni::Unnamed, Log::Sev::All, Log::Note::Starting);
-    log_version();
-    std::cout << std::hex
-              << "Unit: " << static_cast<uint32_t>(lg.get_unit_mask())
-              << std::endl;
-    std::cout << "Sev: " << static_cast<uint16_t>(lg.get_severity())
-              << std::endl;
-    std::cout << std::dec << "loops: " << Global::loop_counter << std::endl;
-    std::cout << "times: " << times << std::endl;
-    while (times < 3) {
-        if (Global::loop_counter > Constants::loop_interval) {
-            LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::LoopedN,
-                  Global::loop_counter);
-            Global::loop_counter = 0;
-            times++;
-        }
-        Global::loop_counter++;
-    }
-    LOG_E(Log::Uni::Main, Log::Err::UnexpectedError);
-    LOG(Log::Uni::Main, Log::Sev::Wrn, "A test %d", 45);
-    std::cout << "loops: " << Global::loop_counter << std::endl;
-    std::cout << "times: " << times << std::endl;
-    LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::Done);
-}
-
-int main(int argc, char* argv[]) {
-    std::cout << "Starting" << std::endl;
-    log_version();
-
-    std::cout << std::endl << "Everything" << std::endl;
-    lg.set_unit_mask(Log::Uni::Last);
-    lg.set_severity(Log::Sev::Dbg);
-    test();
-    std::cout << std::endl << "Only Errors+" << std::endl;
-    lg.set_severity(Log::Sev::Err);
-    test();
-
-    std::cout << std::endl << "Warnings+ from Main" << std::endl;
-    lg.set_unit_mask(Log::Uni::Main);
-    lg.set_severity(Log::Sev::Wrn);
-    test();
-
-    // restore to full
-    lg.set_unit_mask(Log::Uni::Last);
-    lg.set_severity(Log::Sev::Dbg);
-
-    // basic circular queue test
-
-#if USE_QUEUE
-    std::cout << std::endl << "Circual Queue" << std::endl;
-    static constexpr size_t test_buffer_size = 10;
-    static constexpr uint16_t test_entries = 3;
-    CircularQueue circularQueue(test_buffer_size, test_entries);
-    LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::Starting);
-    LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::FreeCapacity,
-          circularQueue.get_free_capacity());
-    LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::FreeEntries,
-          circularQueue.get_free_entries());
-#endif  // USE_QUEUE
-
-    LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::Done);
-    std::cout << std::endl << "Done" << std::endl;
-}
-#endif  // PIO_UNIT_TESTING
-
-#endif  // ARDUINO !ARDUINO
+#endif  // ARDUINO

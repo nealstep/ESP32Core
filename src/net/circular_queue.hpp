@@ -14,7 +14,7 @@ typedef uint16_t Entry;
 
 class CircularQueue {
    private:
-    static constexpr uint16_t avg_message_size = 100;
+    static constexpr uint16_t avg_message_size = 250;
     static constexpr const char* const s_buffer = "buffer";
     static constexpr const char* const s_records = "entries";
 
@@ -51,7 +51,8 @@ class CircularQueue {
         if (buffer == nullptr) {
             buffer = (uint8_t*)malloc(requested_capacity);
             if (buffer == nullptr) {
-                LOG_E(Log::Uni::CirQ, Log::Err::MallocFailed, Log::Word::Buffer);
+                LOG_E(Log::Uni::CirQ, Log::Err::MallocFailed,
+                      Log::Word::Buffer);
                 capacity = 0;
             } else {
                 LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::MallocCreated,
@@ -61,7 +62,8 @@ class CircularQueue {
         if (records == nullptr) {
             records = (uint16_t*)malloc(records_size);
             if (records == nullptr) {
-                LOG_E(Log::Uni::CirQ, Log::Err::MallocFailed, Log::Word::Records);
+                LOG_E(Log::Uni::CirQ, Log::Err::MallocFailed,
+                      Log::Word::Records);
                 entries = 0;
             } else {
                 LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::MallocCreated,
@@ -100,11 +102,14 @@ class CircularQueue {
     }
 
     Log::Err push(const uint8_t* data, Entry length) {
-        LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::CirQPush, length);
+        // LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::CirQPush, length);
         // sanity
         if (buffer == nullptr) return Log::Err::NoQueue;
         if (records == nullptr) return Log::Err::NoQueue;
         if (length > capacity) {
+#ifdef LOG_SERIAL
+            LOG_SERIAL.println("push: too big");
+#endif  // LOG_SERIAL
             return Log::Err::ItemTooBig;
         }
 
@@ -115,17 +120,19 @@ class CircularQueue {
         }
         // not sure this is possible
         if (capacity - used_bytes < length) {
+#ifdef LOG_SERIAL
+            LOG_SERIAL.println("push: unexpected error");
+#endif  // LOG_SERIAL
             return Log::Err::UnexpectedError;
         }
-
-        LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQRdyToCopy);
+        // LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQRdyToCopy);
         // copy data
         size_t space_at_end = capacity - tail_bytes;
         if (length <= space_at_end) {
-            LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQSimpleCopy);
+            // LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQSimpleCopy);
             memcpy(buffer + tail_bytes, data, length);
         } else {
-            LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQBrokenCopy);
+            // LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQBrokenCopy);
             memcpy(buffer + tail_bytes, data, space_at_end);
             memcpy(buffer, data + space_at_end, length - space_at_end);
         }
@@ -141,8 +148,8 @@ class CircularQueue {
     }
 
     Log::Err pop(uint8_t* dest_buffer, Entry max_dest_len, Entry& out_length) {
-        LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::CirQPop, max_dest_len);
-        // sanity
+        // LOG_N(Log::Uni::CirQ, Log::Sev::Inf, Log::Note::CirQPop,
+        // max_dest_len); sanity
         if (buffer == nullptr) return Log::Err::NoQueue;
         if (records == nullptr) return Log::Err::NoQueue;
         if (used_entries == 0) return Log::Err::QueueEmpty;
@@ -150,14 +157,13 @@ class CircularQueue {
         if (next_record_size > max_dest_len) {
             return Log::Err::ItemTooBig;
         }
-
         // Read from circular byte buffer
         size_t space_at_end = capacity - head_bytes;
         if (next_record_size <= space_at_end) {
-            LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQSimpleCopy);
+            // LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQSimpleCopy);
             memcpy(dest_buffer, buffer + head_bytes, next_record_size);
         } else {
-            LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQBrokenCopy);
+            // LOG_N(Log::Uni::CirQ, Log::Sev::Dbg, Log::Note::CirQBrokenCopy);
             memcpy(dest_buffer, buffer + head_bytes, space_at_end);
             memcpy(dest_buffer + space_at_end, buffer,
                    next_record_size - space_at_end);

@@ -114,9 +114,14 @@ class ESP32Net {
     ESP32Net& operator=(const ESP32Net&) = delete;
 
 #ifdef ARDUINO
+    void early_init(void);
     Log::Err init(void);
-    bool have_ip(void) { return local_ip != INADDR_NONE; }
-    void set_ip(IPAddress ip) { local_ip = ip; }
+    bool have_ip(void) { return ip_ready; }
+    void set_ip(IPAddress ip) {
+        local_ip = ip;
+        if (ip == INADDR_NONE) ip_ready = false;
+    }
+    void set_ip_ready();
     void set_subnet_mask(IPAddress smask) {
         subnet_mask = smask;
         subnet_addr = (uint32_t)local_ip & subnet_mask;
@@ -131,7 +136,17 @@ class ESP32Net {
     void queue_net_msg(NetMessage::Type type, uint8_t code);
     Log::Err broadcast_str(const char* str, bool encrypt = use_aes,
                            uint16_t port = 0) {
-        return send_str(broadcastIP, str, encrypt, port);
+        if (broadcastIP != INADDR_NONE)
+            return send_str(broadcastIP, str, encrypt, port);
+        else
+            return Log::Err::NoError;
+    }
+    Log::Err log_str(const char* str, bool encrypt = use_aes,
+                     uint16_t port = 0) {
+        if (remote_host != INADDR_NONE)
+            return send_str(remote_host, str, encrypt, port);
+        else
+            return Log::Err::NoError;
     }
     Log::Err send_str(IPAddress ip, const char* str, bool encrypt = use_aes,
                       uint16_t port = 0);
@@ -143,6 +158,11 @@ class ESP32Net {
 #endif  // USE_AES
     void reconnect(void);
 #endif  // ARDUINO
+    void update_remote_host(const char* ip_s) {
+        remote_host = IPAddress(ip_s);
+        LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::SimpleValueStr,
+              "Remote IP", remote_host.toString().c_str());
+    }
 
    protected:
 #ifdef ARDUINO
@@ -154,14 +174,18 @@ class ESP32Net {
     uint32_t subnet_mask = 0;
     uint32_t subnet_addr = 0;
     uint32_t broadcast_addr = 0;
+    IPAddress remote_host = INADDR_NONE;
+    bool ip_ready = false;
+
+    uint8_t send_buffer[Config::udp_msg_size];
 
 #if USE_AES
     uint8_t aes_key[Config::aes_key_size];
 #endif  // USE_AES
 
 #if USE_QUEUE
-    CircularQueue* local_q;
-    CircularQueue* internet_q;
+    CircularQueue* local_q = nullptr;
+    CircularQueue* internet_q = nullptr;
 #endif  // USE_QUEUE
 #endif  // ARDUINO
     // hidden creator
@@ -172,7 +196,7 @@ class ESP32Net {
     Log::Err connection_check(IPAddress ip, bool& local);
 #if USE_QUEUE
     Log::Err queue_message(CircularQueue& q, Message& m);
-    Log::Err empty_queue(CircularQueue& q);
+    Log::Err empty_queue(CircularQueue& q, bool internet);
 #endif  // USE_QUEUE
     Log::Err send_message(Message& message);
 #if USE_AES

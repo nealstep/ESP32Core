@@ -1,11 +1,16 @@
-#include "e32c_log.hpp"
-#include "prefs/prefs.hpp"
-
 #ifdef ARDUINO
 #include <Arduino.h>
 #else  // !ARDUINO
 #include <iostream>
 #endif  // ARDUINO !ARDUINO
+
+#include "e32c_log.hpp"
+#include "log_output_impl.hpp"
+#include "prefs/prefs.hpp"
+#ifdef LOG_UDP
+#include "net/e32c_net.hpp"
+#endif  // LOG_UDP
+
 
 // TODO: #6 add remote logging
 void log_output_impl(const char* str, bool error, bool truncated) {
@@ -17,7 +22,7 @@ void log_output_impl(const char* str, bool error, bool truncated) {
         std::cout << "Format!: " << str << std::endl;
 #endif  // LOG_SERIAL LOG_STDOUT
 #ifdef LOG_UDP
-        esp32Net.broadcast_str(str);
+        esp32Net.log_str(str);
 #endif  // LOG_UDP
     } else if (truncated) {
         // the line got truncated
@@ -27,7 +32,7 @@ void log_output_impl(const char* str, bool error, bool truncated) {
         std::cout << "Trunc!: " << str << std::endl;
 #endif  // LOG_SERIAL LOG_STDOUT
 #ifdef LOG_UDP
-        esp32Net.broadcast_str(str);
+        esp32Net.log_str(str);
 #endif  // LOG_UDP
     } else {
         // all is good
@@ -37,8 +42,11 @@ void log_output_impl(const char* str, bool error, bool truncated) {
         std::cout << str << std::endl;
 #endif  // LOG_SERIAL LOG_STDOUT
 #ifdef LOG_UDP
-        esp32Net.broadcast_str(str);
+        if (str[0] == Constants::brd) {
+        //     str[0] = Constants::dat;
+            esp32Net.broadcast_str(str);
+        }
+        esp32Net.log_str(str);
 #endif  // LOG_UDP
-
     }
 }

@@ -12,7 +12,6 @@
 
 // async udo
 AsyncUDP audp;
-WiFiUDP wudp;
 
 void get_net_prefs(void) {
     get_pref_str(Prefs::Keys::tz_full, prefs.tz_full, Prefs::Sizes::tz_full,
@@ -28,20 +27,12 @@ void get_net_prefs(void) {
     get_pref_u16(Prefs::Keys::udp_data_port, prefs.udp_data_port,
                  Prefs::BadValues::udp_data_port);
     get_pref_bool(Prefs::Keys::use_queue, prefs.use_queue);
-    get_pref_u16(Prefs::Keys::local_queue_size, prefs.local_queue_size,
-                 Prefs::BadValues::local_queue_size);
-    get_pref_u16(Prefs::Keys::internet_queue_size, prefs.internet_queue_size,
-                 Prefs::BadValues::internet_queue_size);
+
 #if USE_AES
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
-
-    get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
-                 Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
-                 true, "192.168.8.11");
-    // TODO: #8 Remove workaround remote host
 }
 
 void wifi_connected(WiFiEvent_t event, WiFiEventInfo_t info) {
@@ -112,15 +103,15 @@ void ota_check(void) {
 }
 
 bool ESP32Net::Message::serialize(uint8_t* data, size_t len) {
-    LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::MessageSerialize,
-          destination.toString().c_str());
+    // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::MessageSerialize,
+    //   destination.toString().c_str());
     if (len < size()) {
         return false;
     }
     uint8_t* ptr = data;
     uint32_t raw_ip = destination;
-    LOG_N(Log::Uni::Net, Log::Sev::Dbg, Log::Note::SimpleValueStr,
-          Log::Word::Message, str);
+    // LOG_N(Log::Uni::Net, Log::Sev::Dbg, Log::Note::SimpleValueStr,
+    //       Log::Word::Message, str);
     memcpy(ptr, &encrypt, sizeof(bool));
     ptr += sizeof(bool);
     memcpy(ptr, &raw_ip, sizeof(uint32_t));
@@ -132,7 +123,7 @@ bool ESP32Net::Message::serialize(uint8_t* data, size_t len) {
 }
 
 bool ESP32Net::Message::deserialize(uint8_t* data, size_t len) {
-    LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::MessageDesrialize);
+    // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::MessageDesrialize);
     if (len > max_size) {
         return false;
     }
@@ -150,9 +141,29 @@ bool ESP32Net::Message::deserialize(uint8_t* data, size_t len) {
     if (sz >= Config::udp_msg_size) {
         return false;
     }
-    LOG_N(Log::Uni::Net, Log::Sev::Dbg, Log::Note::SimpleValueStr,
-          Log::Word::Message, str);
+    // LOG_N(Log::Uni::Net, Log::Sev::Dbg, Log::Note::SimpleValueStr,
+    //       Log::Word::Message, str);
     return true;
+}
+
+void ESP32Net::early_init(void) {
+    get_pref_u16(Prefs::Keys::local_queue_size, prefs.local_queue_size,
+                 Prefs::BadValues::local_queue_size);
+    get_pref_u16(Prefs::Keys::internet_queue_size, prefs.internet_queue_size,
+                 Prefs::BadValues::internet_queue_size);
+    prefs.local_queue_size = 25 * 1024;
+    prefs.internet_queue_size = 50 * 1024;
+    // TODO: fix hard code
+#if USE_QUEUE
+    // create message queues
+    local_q = new CircularQueue(prefs.local_queue_size);
+    internet_q = new CircularQueue(prefs.internet_queue_size);
+#endif  // USE_QUEUE
+    get_pref_str(Prefs::Keys::remote_host, prefs.remote_host,
+                 Prefs::Sizes::remote_host, Prefs::BadValues::remote_host, true,
+                 true, "192.168.8.11");
+    esp32Net.update_remote_host(prefs.remote_host);
+    // TODO: #8 Remove workaround remote host
 }
 
 // setup wifi and event handlers
@@ -171,12 +182,6 @@ Log::Err ESP32Net::init(void) {
         return Log::Err::CreateQueueFailed;
     }
 
-#if USE_QUEUE
-    // create message queues
-    local_q = new CircularQueue(prefs.local_queue_size);
-    internet_q = new CircularQueue(prefs.internet_queue_size);
-#endif  // USE_QUEUE
-
 #if USE_AES
     // setup aes key
     genAesKey();
@@ -192,10 +197,12 @@ Log::Err ESP32Net::init(void) {
     return Log::Err::NoError;
 }
 
+void ESP32Net::set_ip_ready() { ip_ready = true; }
+
 bool ESP32Net::check_internet(void) {
     LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::CheckInternet, WiFi.status(),
           local_ip.toString().c_str());
-    if ((WiFi.status() == WL_CONNECTED) && (local_ip != INADDR_NONE)) {
+    if (have_ip()) {
         HTTPClient http;
         http.setTimeout(Constants::long_delay);
         http.begin(Config::internet_check_url);
@@ -232,15 +239,13 @@ bool ESP32Net::check_internet(void) {
         esp32Net.queue_net_msg(NetMessage::Type::NoInternet, Config::nocode);
     }
     internet_connected = false;
-#if USE_QUEUE
-    check_queue();
-#endif  // USE_QUEUE
     return internet_connected;
 }
 
 // sync clock to ntp servers
 Log::Err ESP32Net::check_clock(void) {
     LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::CheckClock);
+    if (!have_ip()) return Log::Err::NoNetwork;
     configTzTime(prefs.tz_full, Config::ntp_server_1, Config::ntp_server_2,
                  Config::ntp_server_3);
     struct tm timeinfo;
@@ -269,9 +274,9 @@ void ESP32Net::queue_net_msg(NetMessage::Type type, uint8_t code) {
 Log::Err ESP32Net::check_queue(void) {
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::CheckQueue);
     Log::Err code = Log::Err::NoError;
-    if (local_ip == INADDR_NONE) code = empty_queue(*local_q);
+    if (have_ip()) code = empty_queue(*local_q, false);
     if (code != Log::Err::NoError) return code;
-    if (internet_connected) code = empty_queue(*internet_q);
+    if (internet_connected) code = empty_queue(*internet_q, true);
     return code;
 }
 #endif  // USE_QUEUE
@@ -286,22 +291,23 @@ Log::Err ESP32Net::send_str(IPAddress ip, const char* str, bool encrypt,
     else
         message.port = port;
     bool local =
-        ((ip == broadcastIP) || (subnet_addr == (uint32_t)ip & subnet_mask));
+        ((ip == broadcastIP) || (subnet_addr == ((uint32_t)ip & subnet_mask)));
     message.encrypt = encrypt;
     message.destination = ip;
     size_t sz = strlcpy(message.str, str, Config::udp_msg_size);
     if (sz >= Config::udp_msg_size) {
+#ifdef LOG_SERIAL
+        LOG_SERIAL.println("send_str: String Too Big");
+#endif  // LOG_SERIAL
         return Log::Err::StringTooBig;
     }
-    if (local_ip == INADDR_NONE) {
-        // LOG_E(Log::Uni::Net, Log::Err::NoNetwork);
+    if ((local) && (!have_ip())) {
 #if USE_QUEUE
         code = queue_message(*local_q, message);
         if (code != Log::Err::NoError) return code;
 #endif  // USE_QUEUE
         return Log::Err::NoNetwork;
     } else if ((!local) && (!internet_connected)) {
-        // LOG_E(Log::Uni::Net, Log::Err::NoInternet);
 #if USE_QUEUE
         code = queue_message(*internet_q, message);
         if (code != Log::Err::NoError) return code;
@@ -373,33 +379,49 @@ Log::Err ESP32Net::queue_message(CircularQueue& q, Message& m) {
     size_t mlen = m.size();
     uint8_t data[mlen];
     if (!m.serialize(data, mlen)) {
+#ifdef LOG_SERIAL
+        LOG_SERIAL.println("queue_message: serialize error");
+#endif  // LOG_SERIAL
         return Log::Err::SerializeError;
     }
     Log::Err code = q.push(data, mlen);
     if (code != Log::Err::NoError) {
+#ifdef LOG_SERIAL
+        LOG_SERIAL.println("queue_message: push_error");
+#endif  // LOG_SERIAL
         return code;
     }
     return Log::Err::NoError;
 }
 
-Log::Err ESP32Net::empty_queue(CircularQueue& q) {
+Log::Err ESP32Net::empty_queue(CircularQueue& q, bool internet) {
     uint8_t data[Config::udp_msg_size];
     Entry dlen;
     Message mesg;
 
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::EmptyingQueue);
     Log::Err ret = q.pop(data, sizeof(data), dlen);
+    bool looped = false;
     while (ret != Log::Err::QueueEmpty) {
         if (ret != Log::Err::NoError) {
-            // LOG_E(Log::Uni::Net, ret);
+#ifdef LOG_SERIAL
+            LOG_SERIAL.println("empty_queue: pop error");
+#endif  // LOG_SERIAL
+        // LOG_E(Log::Uni::Net, ret);
             return ret;
         }
+        if (looped) delay(Constants::udp_loop_delay);
         if (!mesg.deserialize(data, sizeof(data))) {
             // LOG_E(Log::Uni::Net, Log::Err::DeserializeError);
+#ifdef LOG_SERIAL
+            LOG_SERIAL.println("empty_queue: deserialize error");
+#endif  // LOG_SERIAL
             return Log::Err::DeserializeError;
         }
+        // TODO: #11 Check if really remote and store in internet queue
         send_message(mesg);
         ret = q.pop(data, sizeof(data), dlen);
+        if (!looped) looped = true;
     }
     return Log::Err::NoError;
 }
@@ -410,6 +432,11 @@ Log::Err ESP32Net::send_message(Message& mesg) {
     // LOG_N(Log::Uni::Net, Log::Sev::Inf, Log::Note::SendMessage,
     //   mesg.destination.toString().c_str(), mesg.port, mesg.str);
     size_t len = strlen(mesg.str) + 1;
+    if (!have_ip()) {
+#ifdef LOG_SERIAL
+        LOG_SERIAL.println("send_message: No Network!!!");
+#endif  // LOG_SERIAL
+    }
 
 #if USE_AES
     if (mesg.encrypt) {
@@ -461,19 +488,8 @@ Log::Err ESP32Net::send_message(Message& mesg) {
     }
 #endif  // USE_AES
     size_t payload_len = strlen(mesg.str);
-    int ret = wudp.beginPacket(mesg.destination, mesg.port);
-    if (ret != 0) {
-        return Log::Err::UDPBeginPacketFailed;
-    }
-    size_t written =
-        wudp.write(reinterpret_cast<const uint8_t*>(mesg.str), len);
-    if (written != len) {
-        return Log::Err::UDPWriteFailed;
-    }
-    ret = wudp.endPacket();
-    if (ret != 0) {
-        return Log::Err::UDPEndPacketFailed;
-    }
+    memcpy(send_buffer, mesg.str, payload_len);
+    audp.writeTo(send_buffer, payload_len, mesg.destination, mesg.port);
     return Log::Err::NoError;
 }
 

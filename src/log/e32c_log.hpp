@@ -1,8 +1,5 @@
 #pragma once
 
-#include "constants.hpp"
-#include "messages.hpp"
-
 #ifdef ARDUINO
 #include <Arduino.h>
 #else
@@ -11,7 +8,9 @@
 #include <cstdio>
 #endif  // ARDUINO
 
-void log_output_impl(const char* str, bool error, bool truncated);
+#include "constants.hpp"
+#include "log_output_impl.hpp"
+#include "messages.hpp"
 
 #ifndef DEF_UNIT
 #define DEF_UNIT Log::Uni::Last
@@ -135,9 +134,9 @@ class Log {
         bool error = false;
 
         truncated = get_timestamp(ts, sizeof(ts));
-        int len = snprintf(buffer, sizeof(buffer), Constants::log_fmt, chipid_s,
-                           msgid, ts, get_message(unit), get_message(svr), file,
-                           line);
+        int len = snprintf(buffer, sizeof(buffer), Constants::log_fmt,
+                           Constants::log, chipid_s, msgid, ts,
+                           get_message(unit), get_message(svr), file, line);
         msgid++;
         // reserve msgid 0
         if (msgid == 0) msgid = 1;
@@ -159,14 +158,14 @@ class Log {
             log_output_impl(buffer, error, truncated);
     }
 
-    void data_impl(Data code, ...) {
+    void data_impl(char id, Data code, ...) {
         char ts[Constants::timestamp_size];
         char buffer[Config::max_message_size];
         bool truncated = false;
         bool error = false;
 
         truncated = get_timestamp(ts, sizeof(ts));
-        int len = snprintf(buffer, sizeof(buffer), Constants::data_fmt,
+        int len = snprintf(buffer, sizeof(buffer), Constants::data_fmt, id,
                            chipid_s, msgid, ts);
         msgid++;
         // reserve msgid 0
@@ -247,11 +246,6 @@ class Log {
         // get unique name for chip
         snprintf(chipid_s, sizeof(chipid_s), "%04X%08X",
                  (uint16_t)(chipid >> 32), (uint32_t)chipid);
-#ifdef LOG_SERIAL
-        LOG_SERIAL.print("Chip ID: ");
-        LOG_SERIAL.println(chipid_s);
-#endif  // LOG_SERIAL
-
         // get likely unique message id
         msgid = esp_random();
         if (msgid == 0) msgid = 1;  // reserve msgid 0
@@ -266,4 +260,4 @@ static Log& lg = Log::getInstance();
     lg.log_notice_impl(__FILE__, __LINE__, unit, svr, code, ##__VA_ARGS__)
 #define LOG_E(unit, code, ...) \
     lg.log_error_impl(__FILE__, __LINE__, unit, code, ##__VA_ARGS__)
-#define DATA(code, ...) lg.data_impl(code, ##__VA_ARGS__)
+#define DATA(id, code, ...) lg.data_impl(id, code, ##__VA_ARGS__)
