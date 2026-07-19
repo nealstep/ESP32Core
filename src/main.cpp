@@ -91,7 +91,7 @@ void serial_setup(void) {
         no_use_serial = false;
     } else {
         no_use_serial = true;
-        prefs.use_serial = Prefs::Defaults::use_serial;
+        prefs.use_serial = true;
     }
     err = prefs.get_u32(Prefs::Keys::serial_speed, prefs.serial_speed,
                         Prefs::BadValues::serial_speed);
@@ -99,7 +99,7 @@ void serial_setup(void) {
         no_serial_speed = false;
     } else {
         no_serial_speed = true;
-        prefs.serial_speed = Prefs::Defaults::serial_speed;
+        prefs.serial_speed = SERIAL_SPEED;
     }
     if (prefs.use_serial) {
         LOG_SERIAL.begin(prefs.serial_speed);
@@ -121,9 +121,7 @@ void serial_setup(void) {
 
 void get_main_prefs() {
     get_pref_str(Prefs::Keys::chip_name, prefs.chip_name,
-                 Prefs::Sizes::chip_name, Prefs::BadValues::chip_name, true,
-                 true, "MyChip");
-    // TODO: #9 Remove workaround chip name
+                 Prefs::Sizes::chip_name, Prefs::BadValues::chip_name);
     get_pref_u32(Prefs::Keys::keep_alive_int, prefs.keep_alive_int,
                  Prefs::BadValues::keep_alive_int);
     taskSendKeepAliveMsg.setInterval(prefs.keep_alive_int);

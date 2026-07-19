@@ -41,7 +41,7 @@ void get_net_prefs(void) {
                  false);
 #if USE_AES
     get_pref_bool(Prefs::Keys::use_aes, prefs.use_aes);
-    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local)
+    get_pref_bool(Prefs::Keys::encrypt_local, prefs.encrypt_local);
     get_pref_str(Prefs::Keys::hex_key, prefs.hex_key, Prefs::Sizes::hex_key,
                  Prefs::BadValues::hex_key, false);
 #endif  // USE_AES
