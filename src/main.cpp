@@ -23,12 +23,15 @@ constexpr uint32_t m_s_dummy_1_1_int =
     1 * Constants::min_sec * Constants::sec_ms;
 
 void m_s_dummy_1_1_chk(void) {
-    DATA(Constants::brd, Log::Data::SU, m_s_dummy_1_1.get_name(),
-         m_s_dummy_1_1.s1, m_s_dummy_1_1.get_s1());
+    if (m_s_dummy_1_1.is_enabled())
+        DATA(Constants::brd, Log::Data::SU, m_s_dummy_1_1.get_name(),
+             m_s_dummy_1_1.s1, m_s_dummy_1_1.get_s1());
 }
 #endif  // M_S_DUMMY
 
 uint32_t loop_counter = 0;
+char commands[Constants::command_q][Constants::command_size];
+uint8_t command_last = 0;
 
 #ifdef ARDUINO
 

@@ -55,10 +55,13 @@ class Module {
             LOG_E(Log::Uni::Mod, Log::Err::StringTooBig, "module create");
         }
     }
+    bool is_enabled(void) { return enabled; }
+    void set_enable(bool val) { enabled = val; }
 
    protected:
     char name[Constants::name_size];
     Modules::Typ type;
     uint8_t loc;
     uint8_t id;
+    bool enabled = true;
 };

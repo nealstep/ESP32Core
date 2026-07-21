@@ -27,6 +27,8 @@ static constexpr size_t timestamp_size = 32;
 static constexpr size_t name_size = 32;
 static constexpr size_t kind_size = 16;
 static constexpr size_t bytes_kb = 1024;
+static constexpr uint8_t command_q = 10;
+static constexpr size_t command_size = 120;
 
 // ips
 static constexpr uint32_t BroadAll = 0xFFFFFFFF; 
