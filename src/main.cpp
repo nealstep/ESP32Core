@@ -29,8 +29,14 @@ void m_s_dummy_1_1_chk(void) {
 }
 #endif  // M_S_DUMMY
 
-uint32_t loop_counter = 0;
+// file globals
+static uint32_t loop_counter = 0;
+static char input[Constants::command_size];
+static uint8_t input_index = 0;
+
+// globals
 char commands[Constants::command_q][Constants::command_size];
+uint8_t command_index = 0;
 uint8_t command_last = 0;
 
 #ifdef ARDUINO
@@ -248,13 +254,46 @@ void updateM5(void) { M5.update(); }
 
 #ifdef LOG_SERIAL
 void serial_in_check() {
-    // TODO: #13 Handle serial input
+    while (Serial.available()) {
+        char in_char = (char)Serial.read();
+
+        if (in_char == '\n') {
+            input[input_index++] = '\0';
+            strlcpy(commands[command_index++], input, Constants::command_size);
+            if (command_index >= Constants::command_q) {
+                command_index = 0;
+            }
+            if (command_index == command_last) {
+                LOG_E(Log::Uni::Main, Log::Err::CmdQOverrun);
+                // always preserve one spot to write to
+                command_last++;
+                if (command_last >= Constants::command_q) {
+                    command_last = 0;
+                }
+            }
+            input_index = 0;
+        } else if (in_char != '\r') {
+            input[input_index++] = in_char;
+            if (input_index >= Constants::command_size) {
+                LOG_E(Log::Uni::Main, Log::Err::ItemTooBig);
+                input_index = 0;
+            }
+        }
+    }
 }
 #endif  // LOG_SERIAL
 
 void command_handler(void) {
-    // TODO: #14 Check if we have commands to handle and handle them
-    // amongst these will be updating and saving to prefs
+    while (command_last != command_index) {
+#ifdef LOG_SERIAL
+        LOG_SERIAL.println(commands[command_last++]);
+#endif  // LOG_SERIAL
+        // TODO: #14 Check if we have commands to handle and handle them
+        // amongst these will be updating and saving to prefs
+        if (command_last >= Constants::command_q) {
+            command_last = 0;
+        }
+    }
 }
 
 void loop(void) {
