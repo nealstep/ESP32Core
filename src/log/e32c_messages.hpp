@@ -35,7 +35,7 @@
     X(UDPWriteFailed, "UDP write failed")               \
     X(UDPEndPacketFailed, "UDP end packet failed")      \
     X(SnprfFailed, "snprintf failed: %s")               \
-    X(CmdQOverrun, "Command Queue Overrun")
+    X(QOverrun, "Queue Overrun: %s")
 
 #define E32C_NOTICE_LIST(X)                                      \
     X(KeepAlive, "Keep alive")                                   \
@@ -83,6 +83,8 @@
     X(Buffer, "Buffer")   \
     X(Records, "Records") \
     X(Message, "Message") \
+    X(Module, "Module")  \
+    X(Command, "Command") \
     X(XXX, "XXX")         \
     X(NoTime, "No Time")
 

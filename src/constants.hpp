@@ -28,10 +28,11 @@ static constexpr size_t name_size = 32;
 static constexpr size_t kind_size = 16;
 static constexpr size_t bytes_kb = 1024;
 static constexpr uint8_t command_q = 10;
+static constexpr size_t modules_max = 16;
 static constexpr size_t command_size = 120;
 
 // ips
-static constexpr uint32_t BroadAll = 0xFFFFFFFF; 
+static constexpr uint32_t BroadAll = 0xFFFFFFFF;
 
 // numbers
 static constexpr uint32_t million = 1000000;
@@ -40,6 +41,8 @@ static constexpr uint32_t million = 1000000;
 static constexpr const char log = '*';
 static constexpr const char brd = '^';
 static constexpr const char dat = '@';
+static constexpr const char cmd = '!';
+static constexpr const char rep = '&';
 
 // formats for time and messages
 static constexpr const char* const time_fmt = "%Y-%m-%d@%H:%M:%S-%Z";

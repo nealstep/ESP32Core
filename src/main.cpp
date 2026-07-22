@@ -1,4 +1,5 @@
 #ifdef ARDUINO
+#include <Arduino.h>
 #include <Preferences.h>
 #include <TaskScheduler.h>
 #endif  // ARDUINO
@@ -7,6 +8,7 @@
 #include <M5Unified.h>
 #endif  // IS_M5
 
+#include "command.hpp"
 #include "constants.hpp"
 #include "log/e32c_log.hpp"
 #include "log/messages.hpp"
@@ -34,10 +36,6 @@ static uint32_t loop_counter = 0;
 static char input[Constants::command_size];
 static uint8_t input_index = 0;
 
-// globals
-char commands[Constants::command_q][Constants::command_size];
-uint8_t command_index = 0;
-uint8_t command_last = 0;
 
 #ifdef ARDUINO
 
@@ -194,6 +192,31 @@ void setup(void) {
     LOG_N(Log::Uni::Main, Log::Sev::Inf, Log::Note::Started);
 }
 
+void add_command(const char* inp) {
+    strlcpy(commands[command_index++], inp, Constants::command_size);
+    if (command_index >= Constants::command_q) {
+        command_index = 0;
+    }
+    if (command_index == command_last) {
+        LOG_E(Log::Uni::Main, Log::Err::QOverrun, Log::Word::Command);
+        // always preserve one spot to write to
+        command_last++;
+        if (command_last >= Constants::command_q) {
+            command_last = 0;
+        }
+    }
+}
+
+void handle_message(const char* data, IPAddress remoteIP, bool broadcast) {
+    LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::ReceivedUDPPacket,
+          remoteIP.toString().c_str(), b2s(broadcast), data);
+    if (data[0] == Constants::cmd) {
+        add_command(&(data[1]));
+    } else {
+        // not a command
+    }
+}
+
 // handle network events from queue
 void events_check(void) {
     ESP32Net::NetMessage netMsg;
@@ -240,10 +263,7 @@ void events_check(void) {
     }
     ESP32Net::UDPMessage udpMsg;
     if (xQueueReceive(esp32Net.udpQueue, &udpMsg, 0) == pdTRUE) {
-        LOG_N(Log::Uni::Main, Log::Sev::All, Log::Note::ReceivedUDPPacket,
-              udpMsg.remoteIP.toString().c_str(), b2s(udpMsg.broadcast),
-              udpMsg.data);
-        // TODO: #5 handle_message(udpMsg.data, udpMsg.remoteIP);
+        handle_message(udpMsg.data, udpMsg.remoteIP, udpMsg.broadcast);
     }
 }
 
@@ -256,23 +276,11 @@ void updateM5(void) { M5.update(); }
 void serial_in_check() {
     while (Serial.available()) {
         char in_char = (char)Serial.read();
-
         if (in_char == '\n') {
             input[input_index++] = '\0';
-            strlcpy(commands[command_index++], input, Constants::command_size);
-            if (command_index >= Constants::command_q) {
-                command_index = 0;
-            }
-            if (command_index == command_last) {
-                LOG_E(Log::Uni::Main, Log::Err::CmdQOverrun);
-                // always preserve one spot to write to
-                command_last++;
-                if (command_last >= Constants::command_q) {
-                    command_last = 0;
-                }
-            }
+            add_command(input);
             input_index = 0;
-        } else if (in_char != '\r') {
+        } else if (in_char != '\r') {  // ignore carriage returns
             input[input_index++] = in_char;
             if (input_index >= Constants::command_size) {
                 LOG_E(Log::Uni::Main, Log::Err::ItemTooBig);
@@ -282,19 +290,6 @@ void serial_in_check() {
     }
 }
 #endif  // LOG_SERIAL
-
-void command_handler(void) {
-    while (command_last != command_index) {
-#ifdef LOG_SERIAL
-        LOG_SERIAL.println(commands[command_last++]);
-#endif  // LOG_SERIAL
-        // TODO: #14 Check if we have commands to handle and handle them
-        // amongst these will be updating and saving to prefs
-        if (command_last >= Constants::command_q) {
-            command_last = 0;
-        }
-    }
-}
 
 void loop(void) {
     if (loop_counter > Constants::loop_interval) {

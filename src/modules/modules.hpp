@@ -8,6 +8,7 @@
 
 #include "constants.hpp"
 #include "log/e32c_log.hpp"
+#include "utils/utils.hpp"
 
 #define TYPES_LIST(X) \
     X(Sensor, "S")    \
@@ -42,6 +43,9 @@ class Modules {
 
 static Modules& mods = Modules::getInstance();
 
+char modules[Constants::modules_max][Constants::name_size];
+uint8_t modules_index = 0;
+
 class Module {
    public:
     const char* get_name(void) { return name; }
@@ -53,6 +57,11 @@ class Module {
                               Modules::get_name(type), _kind, loc, id);
         if (len >= sizeof(name)) {
             LOG_E(Log::Uni::Mod, Log::Err::StringTooBig, "module create");
+        }
+        strlcpy(modules[modules_index++], name, Constants::name_size);
+        if (modules_index >= Constants::modules_max) {
+            LOG_E(Log::Uni::Mod, Log::Err::QOverrun, Log::Word::Module);
+            die();
         }
     }
     bool is_enabled(void) { return enabled; }
