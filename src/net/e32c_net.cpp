@@ -15,6 +15,7 @@ AsyncUDP audp;
 
 #if MESG_DEBUG
 void ESP32Net::dump_mesg(const Message& mesg, const char* title) {
+#ifdef LOG_SERIAL
     LOG_SERIAL.println(title);
     LOG_SERIAL.println(mesg.destination);
     if (mesg.target == Message::Target::Local) {
@@ -25,6 +26,7 @@ void ESP32Net::dump_mesg(const Message& mesg, const char* title) {
         LOG_SERIAL.println("Unknown");
     }
     LOG_SERIAL.println(mesg.encrypt);
+#endif  // LOG_SERIAL
 }
 #endif  // MESG_DEBUG
 
